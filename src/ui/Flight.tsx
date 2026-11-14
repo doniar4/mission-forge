@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { play, stopRumble } from '../audio/sfx';
 import { failureTime, sampleAt, simulateAscent, type AscentEventId } from '../engine/ascent';
 import { ORBITS, POWER, VEHICLES, byId, pick } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
@@ -10,7 +11,7 @@ import { ASCENT_NOTES, ASCENT_ORDER } from '../flight/notes';
 import { useT } from '../i18n';
 import { useDesign, useStore } from '../store';
 import type { FlightStage, FlightView } from '../three/FlightStage';
-import { LangToggle, ROLES } from './common';
+import { LangToggle, ROLES, SoundToggle } from './common';
 import { FlightScene } from './FlightScene';
 import { OrbitView } from './OrbitView';
 import { ScienceChart } from './ScienceChart';
@@ -21,6 +22,16 @@ const SHADOW: Record<Body, L> = {
   mars: { ru: 'в тени Марса', en: 'in Mars’s shadow' },
   sun: { ru: 'в тени', en: 'in shadow' },
 };
+
+/** The browser's own full screen, where it exists (not on iPhone): the page fills the window anyway. */
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || !el.requestFullscreen) return;
+  el.requestFullscreen().catch(() => undefined);
+}
+function exitFullscreen() {
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => undefined);
+}
 
 const clock = (met: number) => {
   const s = Math.abs(Math.round(met));
@@ -106,6 +117,52 @@ export function Flight() {
 
   const phase = director.phase;
   const shown = director.months;
+
+  // The launch fills the screen; once the spacecraft is at work the telemetry comes back beside it.
+  const [full, setFull] = useState(true);
+  const settled = phase === 'cruise' || phase === 'ops' || (phase === 'done' && !sim.launchFailed);
+  const collapsedOnce = useRef(false);
+  useEffect(() => {
+    if (settled && !collapsedOnce.current) {
+      collapsedOnce.current = true;
+      setFull(false);
+      exitFullscreen();
+    }
+  }, [settled]);
+  useEffect(() => () => exitFullscreen(), []);
+
+  // Sounds follow the director: countdown beeps, the roar of the climb, the bangs of staging.
+  const heard = useRef({ second: 1, event: -1, phase: '' as string, logged: 0 });
+  useEffect(() => {
+    const h = heard.current;
+    if (phase === 'countdown') {
+      const s = Math.ceil(-director.met);
+      if (s !== h.second && s > 0 && s <= 10) play('beep');
+      h.second = s;
+    }
+    if (phase !== h.phase) {
+      if (phase === 'ascent' && h.phase === 'countdown') play('ignition');
+      if (phase === 'deploy') stopRumble(1.2);
+      if (phase === 'done') {
+        stopRumble(0.6);
+        play(sim.outcome === 'success' ? 'success' : 'failure');
+      }
+      h.phase = phase;
+    }
+    const ev = director.event;
+    const at = ev ? plan.ascent.events.indexOf(ev) : -1;
+    if (ev && at !== h.event && phase === 'ascent') {
+      h.event = at;
+      if (ev.id === 'boosters' || ev.id === 'separation' || ev.id === 'fairing') play('stage');
+      else if (ev.id === 'seco') stopRumble(1.5);
+      else if (ev.id === 'deploy') play('deploy');
+      else if (ev.id === 'failure') {
+        stopRumble(0.2);
+        play('stage');
+      }
+    }
+  });
+  useEffect(() => () => stopRumble(0.3), []);
   const done = phase === 'done';
   const inSpace = phase === 'deploy' || phase === 'cruise' || phase === 'insertion' || phase === 'ops' || (done && !sim.launchFailed);
   const launching = phase === 'pad' || phase === 'countdown' || phase === 'ascent' || (done && sim.launchFailed);
@@ -115,6 +172,11 @@ export function Flight() {
   const lostNow = !!sim.lost && done && !sim.launchFailed;
   const science = rec?.science ?? 0;
   const events = sim.events.filter((e) => (e.month === 0 ? (sim.launchFailed ? done : inSpace) : e.month <= now && inSpace)).reverse();
+
+  useEffect(() => {
+    if (events.length > heard.current.logged && phase !== 'done' && (events[0]?.kind === 'bad' || events[0]?.kind === 'warn')) play('event');
+    heard.current.logged = events.length;
+  }, [events.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tell the scene what the numbers say: how busy the instruments are, and when something happens.
   const lastEvent = events[0];
@@ -216,13 +278,14 @@ export function Flight() {
     km >= 100_000 ? `${t.n(km / 1e6, 2)} ${t('млн км', 'million km')}` : `${t.n(km, km < 10 ? 1 : 0)} ${t('км', 'km')}`;
 
   return (
-    <div className="page flight">
+    <div className="page flight" data-full={full || undefined} data-phase={phase}>
       <header className="topbar">
         <div className="topbar-left">
           <span className="brand">{t(sc.name)}</span>
           <span className="crumb" aria-live="polite">{phaseLabel}</span>
         </div>
         <div className="topbar-right">
+          <SoundToggle />
           <LangToggle />
         </div>
       </header>
@@ -245,6 +308,25 @@ export function Flight() {
               {phase === 'ascent' && director.warp > 1.5 && director.speed > 0 && (
                 <span className="hud-tag">{t(`время ускорено ×${Math.round(director.warp * director.speed)}`, `time ×${Math.round(director.warp * director.speed)}`)}</span>
               )}
+              <div className="hud-tools">
+                <SoundToggle />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-pressed={full}
+                  aria-label={full ? t('Свернуть', 'Exit full screen') : t('На весь экран', 'Full screen')}
+                  title={full ? t('Свернуть', 'Exit full screen') : t('На весь экран', 'Full screen')}
+                  onClick={() => {
+                    if (full) exitFullscreen();
+                    else enterFullscreen();
+                    setFull(!full);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    {full ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+                  </svg>
+                </button>
+              </div>
               {has3d && inSpace && phase !== 'deploy' && (
                 <div className="segmented hud-cam" role="radiogroup" aria-label={t('Камера', 'Camera')}>
                   <button type="button" role="radio" aria-checked={!mapView} onClick={() => setMapView(false)}>
@@ -330,7 +412,15 @@ export function Flight() {
               </button>
             ) : phase === 'pad' ? (
               <>
-                <button type="button" className="primary" onClick={() => director.go()}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    if (full) enterFullscreen();
+                    play('beep');
+                    director.go();
+                  }}
+                >
                   {t('Начать обратный отсчёт', 'Start the countdown')}
                 </button>
                 <button type="button" className="secondary" onClick={() => director.skip()}>
@@ -347,7 +437,14 @@ export function Flight() {
                   ))}
                 </div>
                 {launching && !sim.launchFailed && (
-                  <button type="button" className="secondary" onClick={() => director.skipAscent()}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      stopRumble(0.4);
+                      director.skipAscent();
+                    }}
+                  >
                     {t('Пропустить выведение', 'Skip the climb')}
                   </button>
                 )}
