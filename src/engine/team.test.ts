@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from './evaluate';
 import { emptyDesign, scenarioById } from './scenarios';
+import { describe as describeEvent } from './development';
 import { ROLE_LIST, TEAM_MAX, goalsFor, initialTeam, reduce, rolesOf, teamwork, type ClientMsg, type TeamState } from './team';
 
 const ctx = { seed: 7 };
@@ -16,6 +17,20 @@ function room(): TeamState {
   s = send(s, 'p1', { t: 'claim', role: 'science' });
   s = send(s, 'p2', { t: 'claim', role: 'engineer' });
   return send(s, 'host', { t: 'start' });
+}
+
+/**
+ * Development, played safe: each event's owner takes the first option. With `pick` a test can
+ * answer differently. Returns the state after the last answer.
+ */
+function develop(s: TeamState, pick: (i: number) => string = () => ''): TeamState {
+  const dev = s.design.dev!;
+  dev.events.forEach((e, i) => {
+    const owner = s.owners[e.role]!;
+    const choice = pick(i) || describeEvent(e, s.design).options[0].id;
+    s = send(s, owner, { t: 'dev', i, choice });
+  });
+  return s;
 }
 
 /** The reference firewatch solution, split across the roles that own each part. */
@@ -100,8 +115,41 @@ describe('team room', () => {
     s = send(s, 'p1', { t: 'ready', ready: true });
     expect(s.phase).toBe('design');
     s = send(s, 'p2', { t: 'ready', ready: true });
+    // Signed off by all: development first, with events drawn from the shared seed.
+    expect(s.phase).toBe('dev');
+    expect(s.design.dev!.events).toHaveLength(3);
+    s = develop(s);
     expect(s.phase).toBe('flight');
     expect(s.seed).toBe(7);
+  });
+
+  it('lets only the owner of the role answer a development event, once', () => {
+    let s = solve(room());
+    for (const id of ['host', 'p1', 'p2']) s = send(s, id, { t: 'ready', ready: true });
+    const e = s.design.dev!.events[0];
+    const owner = s.owners[e.role]!;
+    const stranger = ['host', 'p1', 'p2'].find((id) => !rolesOf(s, id).includes(e.role))!;
+    const option = describeEvent(e, s.design).options[0].id;
+    expect(send(s, stranger, { t: 'dev', i: 0, choice: option })).toBe(s);
+    const answered = send(s, owner, { t: 'dev', i: 0, choice: option });
+    expect(answered.design.dev!.choices[0]).toBe(option);
+    expect(send(answered, owner, { t: 'dev', i: 0, choice: option })).toBe(answered);
+  });
+
+  it('sends the team back to the hangar when development breaks a limit', () => {
+    let s = solve(room());
+    for (const id of ['host', 'p1', 'p2']) s = send(s, id, { t: 'ready', ready: true });
+    // Force an over-budget outcome: a huge cut the team accepts.
+    s = { ...s, design: { ...s.design, dev: { seed: 1, events: [{ kind: 'budget', size: 0.6, role: 'manager' }], choices: [null] } } };
+    s = send(s, 'host', { t: 'dev', i: 0, choice: 'accept' });
+    expect(s.phase).toBe('design');
+    expect(evaluate(s.design, scenarioById('firewatch'), 'engineer').checks.map((c) => c.id)).toContain('over_budget');
+    // After fixing and signing off again the mission flies without a second development.
+    s = send(s, 'host', { t: 'patch', patch: { lifeYears: 1 } });
+    s = send(s, 'p1', { t: 'patch', patch: { instruments: ['thermal_micro'] } });
+    expect(evaluate(s.design, scenarioById('firewatch'), 'engineer').blockers).toBe(0);
+    for (const id of ['host', 'p1', 'p2']) s = send(s, id, { t: 'ready', ready: true });
+    expect(s.phase).toBe('flight');
   });
 
   it('cancels every sign-off when the design changes', () => {
@@ -142,6 +190,8 @@ describe('team room', () => {
     expect(s.ready.p1).toBeUndefined();
     expect(s.ready.host).toBe(true);
     s = send(s, 'p1', { t: 'ready', ready: true });
+    expect(s.phase).toBe('dev');
+    s = develop(s);
     expect(s.phase).toBe('flight');
     expect(s.seed).toBe(7);
   });
@@ -163,6 +213,8 @@ describe('team room', () => {
     expect(rolesOf(s, 'host')).toEqual(['manager', 'science', 'engineer', 'comms']);
     expect(s.phase).toBe('design');
     s = send(s, 'host', { t: 'ready', ready: true });
+    expect(s.phase).toBe('dev');
+    s = develop(s);
     expect(s.phase).toBe('flight');
   });
 
@@ -181,11 +233,14 @@ describe('team room', () => {
   it('returns to design and can relaunch with a new seed', () => {
     let s = solve(room());
     for (const id of ['host', 'p1', 'p2']) s = send(s, id, { t: 'ready', ready: true });
+    s = develop(s);
     const again = reduce(s, 'p1', { t: 'relaunch' }, { seed: 99 });
     expect(again.seed).toBe(99);
     const back = send(again, 'p2', { t: 'back' });
     expect(back.phase).toBe('design');
     expect(back.ready).toEqual({});
+    // A new attempt goes through a new development.
+    expect(back.design.dev).toBeUndefined();
   });
 });
 

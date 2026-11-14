@@ -1,4 +1,5 @@
 import { sanitize } from './design';
+import { chooseDev, devDone, devStarted, makeDev } from './development';
 import { evaluate } from './evaluate';
 import { SCENARIOS, emptyDesign, scenarioById } from './scenarios';
 import type { Design, Difficulty, Evaluation, L, Measure, Role, Scenario } from './types';
@@ -31,7 +32,8 @@ export interface ChatMsg {
 export interface TeamState {
   code: string;
   kind: RoomKind;
-  phase: 'lobby' | 'design' | 'flight';
+  /** design → (everyone signs off) → dev: development events → flight. */
+  phase: 'lobby' | 'design' | 'dev' | 'flight';
   scenarioId: string;
   difficulty: Difficulty;
   design: Design;
@@ -57,6 +59,8 @@ export type ClientMsg =
   /** Flip one instrument on or off. Sent as a toggle, not a list, so two quick clicks never overwrite each other. */
   | { t: 'toggle'; id: string }
   | { t: 'ready'; ready: boolean }
+  /** Answer development event `i` (only the owner of the event's role may). */
+  | { t: 'dev'; i: number; choice: string }
   | { t: 'chat'; text: string }
   | { t: 'back' }
   | { t: 'relaunch' }
@@ -109,10 +113,16 @@ function fillRoles(own: Record<Role, string | null>, members: Member[]): Record<
   return next;
 }
 
-/** Launches when every role has an owner and every owner has signed off on a design the board clears. */
+/**
+ * When every role has an owner and every owner has signed off on a design the board clears, the
+ * design goes into development (events drawn from the seed) or, if development is behind it, flies.
+ */
 function maybeLaunch(s: TeamState, seed: number): TeamState {
   if (s.phase !== 'design' || !allRolesOwned(s) || !owners(s).every((id) => s.ready[id])) return s;
-  if (evaluate(s.design, scenarioById(s.scenarioId), s.difficulty).blockers > 0) return s;
+  const sc = scenarioById(s.scenarioId);
+  if (evaluate(s.design, sc, s.difficulty).blockers > 0) return s;
+  if (!devStarted(s.design)) return { ...s, phase: 'dev', ready: {}, design: { ...s.design, dev: makeDev(s.design, sc, s.difficulty, seed) } };
+  if (!devDone(s.design)) return { ...s, phase: 'dev', ready: {} };
   return { ...s, phase: 'flight', seed };
 }
 
@@ -136,7 +146,7 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
       // While designing, a departure must not leave the team waiting for a sign-off that will never
       // come: the leaver's roles go to whoever holds the fewest. Their new owners have not seen these
       // sections yet, so they sign off again. In the lobby the roles simply become free.
-      const handed = s.phase === 'design' ? ROLE_LIST.filter((r) => s.owners[r] === from) : [];
+      const handed = s.phase === 'design' || s.phase === 'dev' ? ROLE_LIST.filter((r) => s.owners[r] === from) : [];
       if (handed.length) own = fillRoles(own, members);
       const ready: Record<string, boolean> = {};
       for (const [id, ok] of Object.entries(s.ready)) if (id !== from && !handed.some((r) => own[r] === id)) ready[id] = ok;
@@ -196,6 +206,19 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
       }
       return maybeLaunch({ ...s, ready: { ...s.ready, [from]: !!msg.ready } }, ctx.seed);
     }
+    case 'dev': {
+      const dev = s.design.dev;
+      if (s.phase !== 'dev' || !dev || typeof msg.i !== 'number' || typeof msg.choice !== 'string') return s;
+      const e = dev.events[msg.i];
+      if (!e || s.owners[e.role] !== from) return s;
+      const sc = scenarioById(s.scenarioId);
+      const design = sanitize(chooseDev(s.design, msg.i, msg.choice), sc, s.difficulty);
+      if (sameDesign(design, s.design)) return s;
+      if (!devDone(design)) return { ...s, design };
+      // All decided: fly if the board still clears the design, otherwise back to the drawing board.
+      if (evaluate(design, sc, s.difficulty).blockers > 0) return { ...s, design, phase: 'design', ready: {} };
+      return { ...s, design, phase: 'flight', seed: ctx.seed };
+    }
     case 'chat': {
       const text = clean(msg.text, 240);
       if (!text) return s;
@@ -203,8 +226,12 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
       const id = (s.chat[s.chat.length - 1]?.id ?? 0) + 1;
       return { ...s, chat: [...s.chat, { id, name, text }].slice(-60) };
     }
-    case 'back':
-      return s.phase === 'flight' ? { ...s, phase: 'design', seed: null, ready: {} } : s;
+    case 'back': {
+      if (s.phase !== 'flight') return s;
+      // A new attempt is a new project: the next sign-off starts a fresh development.
+      const { dev: _old, ...design } = s.design;
+      return { ...s, phase: 'design', seed: null, ready: {}, design };
+    }
     case 'relaunch':
       return s.phase === 'flight' ? { ...s, seed: ctx.seed } : s;
   }
