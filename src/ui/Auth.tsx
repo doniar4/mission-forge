@@ -413,9 +413,9 @@ function NotConfigured() {
       <details>
         <summary>{t('Для разработчиков', 'For developers')}</summary>
         <p>
-          {t('Скопируйте', 'Copy')} <code>.env.example</code> → <code>.env.local</code>
-          {t(', впишите', ', fill in')} <code>VITE_SUPABASE_URL</code> {t('и', 'and')} <code>VITE_SUPABASE_ANON_KEY</code>
-          {t(' и перезапустите', ' and restart')} <code>npm run dev</code>.
+          {t('Адрес проекта и publishable-ключ задаются в', 'The project URL and publishable key live in')} <code>src/auth/supabase.ts</code>
+          {t(' или переменными', ', or in the variables')} <code>VITE_SUPABASE_URL</code> {t('и', 'and')} <code>VITE_SUPABASE_ANON_KEY</code>
+          {t(' при сборке.', ' at build time.')}
         </p>
       </details>
       <div className="auth-row">
