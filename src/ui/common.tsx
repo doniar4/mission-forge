@@ -187,7 +187,7 @@ export function Gauge({
         <div className="gauge-fill" style={{ width: `${Math.min(100, ratio * 100)}%` }} />
       </div>
       {hint && <p className="gauge-hint">{hint}</p>}
-      {fix && (state === 'over' || state === 'none') && <p className="gauge-fix">{fix}</p>}
+      {fix && state === 'over' && <p className="gauge-fix">{fix}</p>}
     </div>
   );
 }

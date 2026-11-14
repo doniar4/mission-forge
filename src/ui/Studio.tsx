@@ -1,5 +1,5 @@
 import { play } from '../audio/sfx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
 import { devDone, devStarted } from '../engine/development';
 import { evaluate } from '../engine/evaluate';
@@ -58,6 +58,20 @@ export function Studio() {
   const [jump, setJump] = useState(0);
   // Free look: the panels step aside and the spacecraft can be turned and zoomed at will.
   const [inspect, setInspect] = useState(false);
+  // The dock is as tall as its content; the side panels and the 3D framing read its height from
+  // --dock-h, so nothing ever slides under it whatever the screen size.
+  const hangarRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dock = dockRef.current;
+    const root = hangarRef.current;
+    if (!dock || !root || typeof ResizeObserver === 'undefined') return;
+    const set = () => root.style.setProperty('--dock-h', `${Math.ceil(dock.getBoundingClientRect().height)}px`);
+    const ro = new ResizeObserver(set);
+    ro.observe(dock);
+    set();
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     if (!inspect) return;
     const key = (e: KeyboardEvent) => e.key === 'Escape' && setInspect(false);
@@ -130,7 +144,7 @@ export function Studio() {
   const next = SECTIONS[index + 1];
 
   return (
-    <div className="hangar" data-section={section} data-inspect={inspect || undefined}>
+    <div ref={hangarRef} className="hangar" data-section={section} data-inspect={inspect || undefined}>
       <Craft3D
         design={shown}
         ev={shownEv}
@@ -308,9 +322,9 @@ export function Studio() {
         </div>
       </aside>
 
-      <section className="dock glass" aria-labelledby="dock-title">
+      <section ref={dockRef} className="dock glass" aria-labelledby="dock-title">
         <div className="dock-head">
-          <div className="dock-title">
+          <div className="dock-title" title={t(LESSONS[section])}>
             <span className="dock-no">{String(index + 1).padStart(2, '0')}</span>
             <div>
               <span className="role-pill" data-role={current.role}>
@@ -448,7 +462,12 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
   return (
     <div className="coach glass" data-state={next ? 'todo' : risks ? 'risk' : 'ready'} role="status">
       <span className="eyebrow">
-        {next ? t(`Следующий шаг · осталось ${required.length}`, `Next step · ${required.length} to go`) : t('Допуск к запуску', 'Cleared for launch')}
+        {next ? t('Следующий шаг', 'Next step') : t('Допуск к запуску', 'Cleared for launch')}
+        {next && required.length > 1 && (
+          <span className="coach-count" aria-label={t(`всего осталось ${required.length}`, `${required.length} left in all`)}>
+            {required.length}
+          </span>
+        )}
       </span>
       <b>
         {next
@@ -556,7 +575,8 @@ export function ForecastRange({ ev, design }: { ev: Evaluation; design: Design }
 
 export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
-  const weak = weakestLink(ev, design, sc);
+  // While the board still has required findings, the coach already says what to do next.
+  const weak = ev.blockers > 0 ? null : weakestLink(ev, design, sc);
   return (
     <div className="budgets">
       <ForecastRange ev={ev} design={design} />
