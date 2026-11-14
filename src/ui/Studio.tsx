@@ -12,6 +12,7 @@ import { Gauge, LangToggle, ROLES, SoundToggle } from './common';
 import { Craft3D } from './Craft3D';
 import { PartRail, type Delta } from './hangar/PartRail';
 import { LESSONS, SECTIONS, WHERE, deltas, groupsFor, type RailGroup, type SectionId } from './hangar/parts';
+import { RealMissionHint } from './RealMission';
 import { LostBanner, TeamPanel, useTeamState } from './Team';
 
 /** The order in which a newcomer should clear the required findings. */
@@ -135,7 +136,7 @@ export function Studio() {
         variant="stage"
         focus={inspect ? [] : current.focus}
         backdrop={backdrop}
-        offset={wide && !inspect ? [0, 0.17] : [0, 0]}
+        offset={wide && !inspect ? [0, 0.06] : [0, 0]}
         rocket={section === 'rocket' && !inspect ? shown.vehicle : null}
         inspect={inspect}
       />
@@ -345,7 +346,7 @@ export function Studio() {
         )}
 
         <div className="dock-body">
-          {section === 'brief' && <Brief sc={sc} ev={ev} onStart={() => go('orbit')} />}
+          {section === 'brief' && <Brief sc={sc} ev={ev} />}
           {rail && <PartRail group={rail} deltas={cardDeltas} disabled={!canEdit} showTitle={groups.length < 2} onPick={(id) => pick(rail, id)} onPreview={setHover} />}
           {group?.kind === 'years' && <Years design={design} sc={sc} title={group.title} hint={group.hint} disabled={!canEdit} onChange={(y) => patch({ lifeYears: y })} />}
         </div>
@@ -355,13 +356,14 @@ export function Studio() {
   );
 }
 
-function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () => void }) {
+function Brief({ sc, ev }: { sc: Scenario; ev: Evaluation }) {
   const t = useT();
   const weights = (Object.entries(sc.weights) as [Measure, number][]).sort((a, b) => b[1] - a[1]).slice(0, sc.sandbox ? 11 : 6);
   return (
     <div className="brief-panel">
       <div className="brief-main">
         <p className="brief-text">{t(sc.brief)}</p>
+        <RealMissionHint scenarioId={sc.id} />
         <dl className="terms">
           <div>
             <dt>{t('Бюджет', 'Budget')}</dt>
@@ -376,23 +378,6 @@ function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () 
             <dd>{t(`${sc.targetYears} г.`, `${sc.targetYears} yr`)}</dd>
           </div>
         </dl>
-        <ol className="how">
-          <li>
-            <b>{t('Орбита и ракета.', 'Orbit and rocket.')}</b> {t('Ракета задаёт предел массы.', 'The rocket sets the mass limit.')}
-          </li>
-          <li>
-            <b>{t('Аппарат.', 'Spacecraft.')}</b> {t('Приборы, энергия, связь — держите шкалы слева ниже предела.', 'Instruments, power, comms — keep the gauges on the left under their limits.')}
-          </li>
-          <li>
-            <b>{t('Запуск.', 'Launch.')}</b> {t('Когда комиссия даст допуск, жмите «На старт».', 'When the board clears you, press “To the pad”.')}
-          </li>
-        </ol>
-        <button type="button" className="primary" onClick={onStart}>
-          {t('Начать сборку', 'Start building')}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </button>
       </div>
       <div className="brief-needs">
         <h3>{t('Что нужно измерить', 'What has to be measured')}</h3>
@@ -470,13 +455,6 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
             : t('Проект готов к запуску', 'The design is ready to fly')}
       </b>
       <span className="coach-why">{next ? t(next.why) : t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but will show up in space.')}</span>
-      {checks.length > 0 && (
-        <span className="coach-legend">
-          <i data-level="blocker" aria-hidden="true" /> {t('обязательно исправить', 'must fix')}
-          <i data-level="warn" aria-hidden="true" /> {t('риск', 'risk')}
-          <span> · {t('цифра на вкладке — сколько там замечаний', 'the number on a tab counts its findings')}</span>
-        </span>
-      )}
       {where && (
         <button type="button" className="ghost small" onClick={() => onGo(where.id)}>
           {t(`К разделу «${where.name.ru}»`, `Go to ${where.name.en}`)}
@@ -490,12 +468,12 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
 }
 
 /**
- * Why the science forecast falls short, in one line: the factor that cuts it the most.
- * Mirrors the forecast in evaluate(): quality × orbit fit × power duty × data returned × years.
+ * The weakest link of the design, in one line, from what the gauges and cards already show:
+ * the factor that would cut the science most. The science outcome itself is never shown before
+ * the flight — finding it out is the point of flying.
  */
-function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L; section: SectionId } | null {
-  if (ev.science.projected >= 1) return null;
-  if (!design.orbit) return { text: { ru: 'Сначала выберите орбиту — без неё прогноза нет.', en: 'Choose an orbit first — no forecast without one.' }, section: 'orbit' };
+function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; section: SectionId } | null {
+  if (!design.orbit) return { text: { ru: 'Сначала выберите орбиту — от неё зависит всё остальное.', en: 'Choose an orbit first — everything else depends on it.' }, section: 'orbit' };
   if (design.instruments.length === 0) return { text: { ru: 'На борту нет приборов — измерять нечем.', en: 'No instruments on board — nothing to measure with.' }, section: 'payload' };
   const pct = (x: number) => Math.round(x * 100);
   const fit = ev.science.orbitFit;
@@ -520,7 +498,7 @@ function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L
       k: quality,
       text: blurry
         ? { ru: 'Аппарат дрожит — снимки смазаны. Нужна ориентация точнее.', en: 'The spacecraft wobbles and blurs the data. It needs finer pointing.' }
-        : { ru: `Приборы закрывают задачу на ${pct(quality)}%. Нужны приборы лучше или ещё один.`, en: `The instruments cover ${pct(quality)}% of the goal. Better or more instruments needed.` },
+        : { ru: 'Приборы видят задачу хуже, чем нужно заказчику: класс выше или ещё один прибор.', en: 'The instruments see less than the customer needs: a higher class or one more instrument.' },
       section: blurry ? 'platform' : 'payload',
     },
     {
@@ -540,9 +518,18 @@ function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L
 
 function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
-  const reason = forecastReason(ev, design, sc);
+  const weak = weakestLink(ev, design, sc);
   return (
     <div className="budgets">
+      {weak && (
+        <button type="button" className="weak-link" onClick={() => onGo(weak.section)}>
+          <span className="weak-label">{t('Слабое место', 'Weakest link')}</span>
+          <span className="weak-text">{t(weak.text)}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
       <Gauge
         label={t('Масса', 'Mass')}
         used={ev.mass.wet}
@@ -585,24 +572,6 @@ function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc:
         hint={t('нужно на разработку / есть до запуска', 'needed to build / left until launch')}
         fix={t('Меньше приборов или испытания короче.', 'Fewer instruments or shorter testing.')}
       />
-      <div className="forecast" data-state={ev.science.projected >= 1 ? 'ok' : ev.science.projected >= 0.5 ? 'tight' : 'over'}>
-        <div className="gauge-row">
-          <span className="gauge-label">{t('Прогноз науки', 'Science forecast')}</span>
-          <span className="gauge-value">{t.pct(ev.science.projected)}</span>
-        </div>
-        <div className="gauge-track forecast-track" role="img" aria-label={t(`Прогноз науки: ${t.pct(ev.science.projected)} от цели`, `Science forecast: ${t.pct(ev.science.projected)} of target`)}>
-          <div className="gauge-fill" style={{ width: `${Math.min(100, (ev.science.projected / 1.4) * 100)}%` }} />
-        </div>
-        <p className="gauge-hint">{t('отметка — цель заказчика', 'the tick is the customer’s target')}</p>
-        {reason && (
-          <button type="button" className="forecast-why" onClick={() => onGo(reason.section)}>
-            <span>{t(reason.text)}</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
-      </div>
     </div>
   );
 }

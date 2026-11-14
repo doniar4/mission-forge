@@ -9,6 +9,7 @@ import { useDesign, useStore } from '../store';
 import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
 import { Craft3D } from './Craft3D';
+import { RealMissionCompare } from './RealMission';
 
 export function Debrief() {
   const t = useT();
@@ -96,6 +97,8 @@ export function Debrief() {
         </section>
 
         <div>
+          <RealMissionCompare scenarioId={scenarioId} design={design} ev={ev} />
+
           <section className="block">
             <h2>{t('Из чего сложился счёт', 'How the score adds up')}</h2>
             <table className="scores">

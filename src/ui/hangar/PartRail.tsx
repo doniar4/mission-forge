@@ -10,12 +10,10 @@ export interface Delta {
   blockers: number;
 }
 
-const still = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /**
- * A row of part cards to slide through. For a one-of-many choice the slider underneath
- * scrubs straight through the options; for instruments each card toggles.
- * Hovering or focusing a card fits it to the spacecraft for a moment (onPreview).
+ * One part at a time: the card in the middle, big arrows on either side, dots and a counter
+ * underneath. The arrows only browse; the button on the card (or a click on it) fits the part.
+ * Hovering or focusing the card fits it to the spacecraft for a moment (onPreview).
  */
 export function PartRail({
   group,
@@ -34,220 +32,264 @@ export function PartRail({
   onPreview: (id: string | null) => void;
 }) {
   const t = useT();
-  // The card under the pointer (or keyboard focus) tells its story above the rail.
-  const [peek, setPeek] = useState<string | null>(null);
-  const look = (id: string | null) => {
-    setPeek(id);
-    if (!disabled) onPreview(id);
-  };
-  const track = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
   const multi = !!group.multi;
-  const index = multi ? -1 : group.cards.findIndex((c) => group.selected.includes(c.id));
-  const told = group.cards.find((c) => c.id === peek) ?? (index >= 0 ? group.cards[index] : undefined);
-
-  const centre = (i: number, smooth = true) => {
-    const el = track.current?.children[i] as HTMLElement | undefined;
-    if (!el || !track.current) return;
-    const left = el.offsetLeft - (track.current.clientWidth - el.clientWidth) / 2;
-    track.current.scrollTo({ left, behavior: smooth && !still() ? 'smooth' : 'auto' });
-  };
-  // Keep the chosen card in the middle of the rail when the choice changes.
+  const count = group.cards.length;
+  const start = () => Math.max(0, group.cards.findIndex((c) => group.selected.includes(c.id)));
+  const [cur, setCur] = useState(start);
+  // A new group (another stage or instrument class) opens on its fitted part, or the first.
+  useEffect(() => setCur(start()), [group.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const index = Math.min(cur, count - 1);
+  const card = group.cards[index];
+  const on = group.selected.includes(card.id);
+  const d = deltas[card.id];
+  const swipe = useRef<{ x: number; done: boolean } | null>(null);
+  // "All options": every card at once, to jump straight to one instead of stepping through.
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => setMenu(false), [group.id]);
   useEffect(() => {
-    if (index >= 0) centre(index);
-  }, [index, group.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (index >= 0) centre(index, false);
-  }, [group.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!menu) return;
+    const key = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && setMenu(false);
+    const away = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (!menuRef.current?.contains(el) && !el.closest('.rail-all')) setMenu(false);
+    };
+    window.addEventListener('keydown', key);
+    window.addEventListener('pointerdown', away);
+    menuRef.current?.querySelector<HTMLButtonElement>('[aria-current="true"]')?.focus();
+    return () => {
+      window.removeEventListener('keydown', key);
+      window.removeEventListener('pointerdown', away);
+    };
+  }, [menu]);
 
-  const step = (dir: 1 | -1) => {
-    if (multi || index < 0) {
-      track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.7, behavior: still() ? 'auto' : 'smooth' });
-      return;
-    }
-    const next = Math.min(group.cards.length - 1, Math.max(0, index + dir));
-    if (next !== index) onPick(group.cards[next].id);
+  const go = (to: number) => {
+    const next = Math.min(count - 1, Math.max(0, to));
+    if (next === index) return;
+    setCur(next);
+    onPreview(null);
   };
-
+  const pick = () => {
+    if (disabled || (on && !multi)) return;
+    onPick(card.id);
+  };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const cards = [...(track.current?.querySelectorAll<HTMLButtonElement>('.part') ?? [])];
-    const at = cards.indexOf(document.activeElement as HTMLButtonElement);
-    const to = Math.min(cards.length - 1, Math.max(0, (at < 0 ? Math.max(0, index) : at) + (e.key === 'ArrowRight' ? 1 : -1)));
-    cards[to]?.focus();
-    if (!multi && !disabled) onPick(group.cards[to].id);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      go(index + (e.key === 'ArrowRight' ? 1 : -1));
+    }
   };
-
-  // Mouse drag to slide; a drag must not count as a click on the card under the pointer.
+  // A sideways swipe on a touch screen browses like the arrows.
   const down = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== 'mouse' || !track.current) return;
-    drag.current = { x: e.clientX, left: track.current.scrollLeft, moved: false };
+    if (e.pointerType !== 'mouse') swipe.current = { x: e.clientX, done: false };
   };
   const move = (e: PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    if (!d || !track.current) return;
-    const dx = e.clientX - d.x;
-    if (Math.abs(dx) > 5) d.moved = true;
-    if (d.moved) track.current.scrollLeft = d.left - dx;
+    const s = swipe.current;
+    if (!s || s.done) return;
+    const dx = e.clientX - s.x;
+    if (Math.abs(dx) > 48) {
+      s.done = true;
+      go(index + (dx < 0 ? 1 : -1));
+    }
   };
-  const up = () => {
-    setTimeout(() => (drag.current = null), 0);
-  };
+
+  const action = multi
+    ? on
+      ? t('Убрать с борта', 'Remove')
+      : t('Добавить на борт', 'Add to spacecraft')
+    : on
+      ? t('Установлено', 'Fitted')
+      : t('Установить', 'Fit this');
 
   return (
-    <div className="rail-wrap">
-      <div className="rail-head">
-        <div className="rail-story" aria-live="polite">
-          {showTitle && <h3>{group.title}</h3>}
-          {group.hint && <p className="rail-hint">{group.hint}</p>}
-          {group.cards.some((c) => deltas[c.id] && !group.selected.includes(c.id)) && (
-            <p className="rail-legend">
-              <span className="rail-legend-chip" aria-hidden="true">{t('+кг', '+kg')}</span>
-              {t(
-                'метки — как изменится весь аппарат: вместе с деталью растут корпус, проводка и цена разработки. Ниже — параметры самой детали.',
-                'chips show how the whole spacecraft changes: the structure, wiring and development cost grow with the part. Below are the part’s own numbers.',
-              )}
-            </p>
-          )}
-          {told && (
-            <p className="rail-desc">
-              <b>{told.name}.</b> {told.desc}
-              {told.note && <span className="rail-note"> {told.note}</span>}
-            </p>
-          )}
+    <div className="rail-wrap rail-one">
+      {(showTitle || group.hint) && (
+        <div className="rail-head">
+          <div className="rail-story">
+            {showTitle && <h3>{group.title}</h3>}
+            {group.hint && <p className="rail-hint">{group.hint}</p>}
+          </div>
         </div>
-        <div className="rail-nav">
-          <button type="button" className="round" onClick={() => step(-1)} disabled={!multi && index <= 0} aria-label={t('Предыдущий вариант', 'Previous option')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
+      )}
+
+      <div className="rail-stage" role="group" aria-roledescription={t('карусель', 'carousel')} aria-label={group.title} title={group.hint} onKeyDown={onKey}>
+        <button type="button" className="rail-arrow" onClick={() => go(index - 1)} disabled={index === 0} aria-label={t('Предыдущий вариант', 'Previous option')}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+
+        <div
+          className="part part-one"
+          data-on={on || undefined}
+          data-warn={!!card.warning || undefined}
+          data-tall={card.tall || undefined}
+          aria-live="polite"
+          onMouseEnter={() => !disabled && onPreview(card.id)}
+          onMouseLeave={() => onPreview(null)}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={() => (swipe.current = null)}
+        >
+          <button type="button" className="part-art" onClick={pick} disabled={disabled} tabIndex={-1} aria-hidden="true">
+            <img src={card.thumb} alt="" decoding="async" draggable={false} />
           </button>
+          <div className="part-body">
+            <div className="part-name">
+              {card.tier && (
+                <span className="part-tier" data-tier={card.tier.level} title={card.tier.name}>
+                  <i aria-hidden="true" />
+                  <i aria-hidden="true" />
+                  <i aria-hidden="true" />
+                  <span className="sr-only">{card.tier.name}</span>
+                </span>
+              )}
+              <span>{card.name}</span>
+              {on && <span className="part-state">{multi ? t('на борту', 'on board') : t('установлено', 'fitted')}</span>}
+            </div>
+            <p className="part-desc" title={card.desc}>
+              {card.desc}
+              {card.note && <span className="rail-note"> {card.note}</span>}
+            </p>
+            <div className="part-facts">
+              {card.stats.length > 0 && (
+                <dl className="part-stats">
+                  {card.stats.map((s) => (
+                    <div key={s.label}>
+                      <dt>{s.label}</dt>
+                      <dd>{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {d && !on && <Deltas d={d} />}
+            </div>
+            {card.warning && <span className="part-warning">{card.warning}</span>}
+            {card.tags && card.tags.some((g) => g.good) && (
+              <span className="part-tags">
+                {card.tags
+                  .filter((g) => g.good)
+                  .map((g) => (
+                    <span key={g.text} data-good>
+                      {g.text}
+                    </span>
+                  ))}
+              </span>
+            )}
+          </div>
           <button
             type="button"
-            className="round"
-            onClick={() => step(1)}
-            disabled={!multi && index >= group.cards.length - 1 && index >= 0}
-            aria-label={t('Следующий вариант', 'Next option')}
+            className={on && !multi ? 'part-pick' : multi && on ? 'part-pick secondary' : 'part-pick primary'}
+            data-done={(on && !multi) || undefined}
+            disabled={disabled || (on && !multi)}
+            onClick={pick}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
+            {on && !multi && (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            )}
+            {action}
           </button>
         </div>
+
+        <button type="button" className="rail-arrow" onClick={() => go(index + 1)} disabled={index >= count - 1} aria-label={t('Следующий вариант', 'Next option')}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
-      <div
-        ref={track}
-        className="rail-track"
-        role={multi ? 'group' : 'radiogroup'}
-        aria-label={group.title}
-        onKeyDown={onKey}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerLeave={() => {
-          up();
-          look(null);
-        }}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) look(null);
-        }}
-      >
-        {group.cards.map((c, i) => {
-          const on = group.selected.includes(c.id);
-          const d = deltas[c.id];
-          return (
-            <button
-              key={c.id}
-              type="button"
-              className="part"
-              data-tall={c.tall || undefined}
-              data-warn={!!c.warning || undefined}
-              role={multi ? 'checkbox' : 'radio'}
-              aria-checked={on}
-              tabIndex={multi || on || (index < 0 && i === 0) ? 0 : -1}
-              disabled={disabled}
-              onMouseEnter={() => look(c.id)}
-              onFocus={() => look(c.id)}
-              onClick={() => {
-                if (drag.current?.moved) return;
-                onPick(c.id);
-              }}
-            >
-              <span className="part-art">
-                <img src={c.thumb} alt="" loading="lazy" decoding="async" draggable={false} />
-                <span className="part-mark" aria-hidden="true">
-                  {on && (
-                    <svg viewBox="0 0 24 24">
-                      <path d="M5 12.5l4.5 4.5L19 7.5" />
-                    </svg>
-                  )}
-                </span>
-              </span>
-              <span className="part-body">
-                <span className="part-name">
-                  {c.tier && (
-                    <span className="part-tier" data-tier={c.tier.level} title={c.tier.name}>
-                      <i aria-hidden="true" />
-                      <i aria-hidden="true" />
-                      <i aria-hidden="true" />
-                      <span className="sr-only">{c.tier.name}</span>
+      {menu && (
+        <div className="rail-menu" ref={menuRef} role="dialog" aria-label={t(`Все варианты: ${group.title}`, `All options: ${group.title}`)}>
+          <div className="rail-menu-head">
+            <b>{group.title}</b>
+            <span>{t(`${count} вариантов`, `${count} options`)}</span>
+          </div>
+          <div className="rail-menu-grid">
+            {group.cards.map((c, i) => {
+              const fitted = group.selected.includes(c.id);
+              const dd = deltas[c.id];
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="rail-tile"
+                  aria-current={i === index ? 'true' : undefined}
+                  data-on={fitted || undefined}
+                  data-warn={!!c.warning || undefined}
+                  onClick={() => {
+                    go(i);
+                    setMenu(false);
+                  }}
+                  onMouseEnter={() => !disabled && onPreview(c.id)}
+                  onMouseLeave={() => onPreview(null)}
+                >
+                  <img src={c.thumb} alt="" loading="lazy" decoding="async" />
+                  <span className="rail-tile-text">
+                    <span className="rail-tile-name">
+                      {c.tier && (
+                        <span className="part-tier" data-tier={c.tier.level}>
+                          <i aria-hidden="true" />
+                          <i aria-hidden="true" />
+                          <i aria-hidden="true" />
+                        </span>
+                      )}
+                      {c.name}
                     </span>
-                  )}
-                  {c.name}
-                </span>
-                {d && !on && <Deltas d={d} />}
-                {d && on && multi && (
-                  <span className="part-state">{t('на борту', 'on board')}</span>
-                )}
-                {on && !multi && <span className="part-state">{t('установлено', 'fitted')}</span>}
-                {c.warning && <span className="part-warning">{c.warning}</span>}
-                {c.stats.length > 0 && (
-                  <span className="part-stats">
-                    {c.stats.map((s) => (
-                      <span key={s.label}>
-                        <span>{s.label}</span>
-                        <b>{s.value}</b>
+                    <span className="rail-tile-facts">
+                      {c.stats.slice(0, 2).map((x) => (
+                        <span key={x.label}>
+                          {x.label} <b>{x.value}</b>
+                        </span>
+                      ))}
+                    </span>
+                    {fitted ? (
+                      <span className="rail-tile-state">{multi ? t('на борту', 'on board') : t('установлено', 'fitted')}</span>
+                    ) : c.warning ? (
+                      <span className="rail-tile-warn">{c.warning}</span>
+                    ) : dd && Math.abs(dd.cost) >= 0.1 ? (
+                      <span className="rail-tile-delta">
+                        {dd.cost > 0 ? '+' : '−'}
+                        {t.money(Math.abs(dd.cost))}
+                        {Math.abs(dd.mass) >= 0.5 && ` · ${dd.mass > 0 ? '+' : '−'}${t.n(Math.abs(dd.mass))} ${t('кг', 'kg')}`}
                       </span>
-                    ))}
+                    ) : null}
                   </span>
-                )}
-                {c.tags && (
-                  <span className="part-tags">
-                    {c.tags.map((g) => (
-                      <span key={g.text} data-good={g.good || undefined}>
-                        {g.text}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-      {!multi && group.cards.length > 1 && (
-        <label className="scrub">
-          <span className="sr-only">{group.title}</span>
-          <input
-            type="range"
-            min={0}
-            max={group.cards.length - 1}
-            step={1}
-            value={Math.max(0, index)}
-            disabled={disabled}
-            aria-valuetext={group.cards[Math.max(0, index)].name}
-            onChange={(e) => onPick(group.cards[Number(e.target.value)].id)}
-            style={{ ['--fill' as string]: `${(Math.max(0, index) / (group.cards.length - 1)) * 100}%` }}
-          />
-          <span className="scrub-ticks" aria-hidden="true">
+      {count > 1 && (
+        <div className="rail-dots">
+          <span className="rail-count" aria-live="polite">
+            {index + 1} / {count}
+          </span>
+          <span className="rail-dots-list">
             {group.cards.map((c, i) => (
-              <i key={c.id} data-on={i === index} />
+              <button
+                key={c.id}
+                type="button"
+                aria-label={c.name}
+                aria-current={i === index || undefined}
+                data-on={group.selected.includes(c.id) || undefined}
+                onClick={() => go(i)}
+              />
             ))}
           </span>
-        </label>
+          <button type="button" className="rail-all" aria-expanded={menu} onClick={() => setMenu((x) => !x)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="6" height="6" rx="1.5" />
+              <rect x="14" y="4" width="6" height="6" rx="1.5" />
+              <rect x="4" y="14" width="6" height="6" rx="1.5" />
+              <rect x="14" y="14" width="6" height="6" rx="1.5" />
+            </svg>
+            {t('Все варианты', 'All options')}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -257,7 +299,7 @@ function Deltas({ d }: { d: Delta }) {
   const t = useT();
   const chips: { text: string; good: boolean }[] = [];
   const sign = (x: number) => (x > 0 ? '+' : '−');
-  if (Math.abs(d.science) >= 0.01) chips.push({ text: t(`наука ${sign(d.science)}${t.n(Math.abs(d.science) * 100)}%`, `science ${sign(d.science)}${t.n(Math.abs(d.science) * 100)}%`), good: d.science > 0 });
+  // No science chip: how much science a design returns is found out by flying it.
   if (Math.abs(d.mass) >= 0.5) chips.push({ text: `${sign(d.mass)}${t.n(Math.abs(d.mass))} ${t('кг', 'kg')}`, good: d.mass < 0 });
   if (Math.abs(d.power) >= 0.5) chips.push({ text: `${sign(d.power)}${t.n(Math.abs(d.power))} ${t('Вт', 'W')}`, good: d.power < 0 });
   if (Math.abs(d.cost) >= 0.1) chips.push({ text: `${sign(d.cost)}${t.money(Math.abs(d.cost))}`, good: d.cost < 0 });
@@ -266,12 +308,12 @@ function Deltas({ d }: { d: Delta }) {
   return (
     <span
       className="part-deltas"
-      aria-label={t('Что изменится у всего аппарата', 'What changes for the whole spacecraft')}
       title={t(
         'Как изменится весь аппарат: кроме самой детали, растут корпус, проводка, энергосистема и цена разработки.',
         'How the whole spacecraft changes: besides the part itself, the structure, wiring, power system and development cost grow too.',
       )}
     >
+      <span className="part-deltas-label">{t('Весь аппарат:', 'Whole spacecraft:')}</span>
       {chips.map((c) => (
         <span key={c.text} data-good={c.good}>
           {c.text}

@@ -88,8 +88,8 @@ export class HeroStage {
     if (box.width < 2 || box.height < 2) return;
     this.renderer.setSize(box.width, box.height, false);
     this.camera.aspect = box.width / box.height;
-    // On a wide screen the headline takes the left; move the rocket into the right-hand third.
-    const shift = this.camera.aspect > 1.2 ? 0.2 : 0;
+    // On a wide screen the missions take the left and the brief the right: the rocket stands between.
+    const shift = this.camera.aspect > 1.2 ? 0.1 : 0;
     if (shift) this.camera.setViewOffset(box.width, box.height, -shift * box.width, 0, box.width, box.height);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
