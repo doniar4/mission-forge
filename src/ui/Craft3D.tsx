@@ -1,14 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Design, Evaluation } from '../engine/types';
 import { useT } from '../i18n';
-import type { CraftStage } from '../three/CraftStage';
+import type { Backdrop, CraftStage } from '../three/CraftStage';
 import { Spacecraft } from './Spacecraft';
 
 /**
  * The spacecraft in 3D, assembled from the player's choices. The 3D code is loaded on demand;
  * without WebGL the technical drawing takes its place.
+ *
+ * variant 'stage' fills its parent: the hangar, with the destination below and a camera that
+ * leans towards the parts in `focus`. variant 'card' is a framed picture for a panel.
  */
-export function Craft3D({ design, ev }: { design: Design; ev: Evaluation }) {
+export function Craft3D({
+  design,
+  ev,
+  variant = 'card',
+  focus = [],
+  backdrop = 'earth',
+  offset = [0, 0],
+}: {
+  design: Design;
+  ev: Evaluation;
+  variant?: 'stage' | 'card';
+  focus?: string[];
+  backdrop?: Backdrop;
+  offset?: [number, number];
+}) {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<CraftStage | null>(null);
@@ -24,7 +41,7 @@ export function Craft3D({ design, ev }: { design: Design; ev: Evaluation }) {
         const assets = await loadAssets();
         if (dead || !canvas.current) return;
         const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        made = new CraftStage(canvas.current, assets, still);
+        made = new CraftStage(canvas.current, assets, { still, mode: variant === 'stage' ? 'space' : 'card' });
         stage.current = made;
         setState('ready');
       } catch {
@@ -36,33 +53,51 @@ export function Craft3D({ design, ev }: { design: Design; ev: Evaluation }) {
       made?.dispose();
       stage.current = null;
     };
-  }, []);
+  }, [variant]);
 
   useEffect(() => {
     if (state === 'ready') stage.current?.setDesign(design, ev.mass.dry);
   }, [design, ev.mass.dry, state]);
+  const focusKey = focus.join('|');
+  useEffect(() => {
+    if (state === 'ready') stage.current?.setFocus(focusKey ? focusKey.split('|') : []);
+  }, [focusKey, state]);
+  useEffect(() => {
+    if (state === 'ready') stage.current?.setBackdrop(backdrop);
+  }, [backdrop, state]);
+  useEffect(() => {
+    if (state === 'ready') stage.current?.setOffset(offset[0], offset[1]);
+  }, [offset[0], offset[1], state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const label = t(
+    `Трёхмерная модель аппарата: сухая масса ${Math.round(ev.mass.dry)} кг, приборов ${design.instruments.length}. Модель можно вращать.`,
+    `3D model of the spacecraft: dry mass ${Math.round(ev.mass.dry)} kg, ${design.instruments.length} instruments. Drag to rotate.`,
+  );
+
+  if (variant === 'stage')
+    return (
+      <div className="stage3d" data-state={state}>
+        {state === 'failed' ? (
+          <div className="stage3d-fallback">
+            <Spacecraft design={design} ev={ev} />
+          </div>
+        ) : (
+          <canvas ref={canvas} role="img" aria-label={label} />
+        )}
+        {state === 'loading' && <span className="stage3d-wait">{t('Собираем аппарат…', 'Assembling the spacecraft…')}</span>}
+      </div>
+    );
 
   if (state === 'failed') return <Spacecraft design={design} ev={ev} />;
-
   return (
     <figure className="craft3d" data-state={state}>
       <div className="craft3d-view">
-        <canvas
-          ref={canvas}
-          role="img"
-          aria-label={t(
-            `Трёхмерная модель аппарата: сухая масса ${Math.round(ev.mass.dry)} кг, приборов ${design.instruments.length}. Модель можно вращать.`,
-            `3D model of the spacecraft: dry mass ${Math.round(ev.mass.dry)} kg, ${design.instruments.length} instruments. Drag to rotate.`,
-          )}
-        />
+        <canvas ref={canvas} role="img" aria-label={label} />
         {state === 'loading' && <span className="craft3d-wait">{t('Собираем модель…', 'Assembling the model…')}</span>}
       </div>
       <figcaption>
         <span>
-          {t(
-            `сухая масса ${t.n(ev.mass.dry)} кг, с топливом ${t.n(ev.mass.wet)} кг`,
-            `dry mass ${t.n(ev.mass.dry)} kg, fuelled ${t.n(ev.mass.wet)} kg`,
-          )}
+          {t(`сухая масса ${t.n(ev.mass.dry)} кг, с топливом ${t.n(ev.mass.wet)} кг`, `dry mass ${t.n(ev.mass.dry)} kg, fuelled ${t.n(ev.mass.wet)} kg`)}
         </span>
         <span className="craft3d-tip">{t('потяните, чтобы повернуть', 'drag to rotate')}</span>
       </figcaption>

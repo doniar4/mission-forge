@@ -242,7 +242,7 @@ export function Flight() {
               <span className="hud-clock">
                 {phase === 'countdown' || phase === 'ascent' ? clock(director.met) : phase === 'pad' ? clock(-COUNTDOWN) : ''}
               </span>
-              {phase === 'ascent' && director.warp > 1.5 && (
+              {phase === 'ascent' && director.warp > 1.5 && director.speed > 0 && (
                 <span className="hud-tag">{t(`время ускорено ×${Math.round(director.warp * director.speed)}`, `time ×${Math.round(director.warp * director.speed)}`)}</span>
               )}
               {has3d && inSpace && phase !== 'deploy' && (
