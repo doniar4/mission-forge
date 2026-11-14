@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ADCS, ANTENNAS, BATTERIES, COMPUTERS, INSTRUMENTS, POWER, PROPULSION, STRUCTURES, VEHICLES, byId } from './engine/catalog';
-import { emptyDesign, scenarioById, scenarioOrbits } from './engine/scenarios';
+import { sanitize } from './engine/design';
+import { emptyDesign, scenarioById } from './engine/scenarios';
 import { simulate } from './engine/simulate';
-import type { Design, Difficulty, Scenario, SimResult } from './engine/types';
+import type { TeamState } from './engine/team';
+import type { Design, Difficulty, L, SimResult } from './engine/types';
 
 export type Lang = 'ru' | 'en';
-export type Screen = 'home' | 'studio' | 'flight' | 'report';
+export type Screen = 'home' | 'lobby' | 'studio' | 'flight' | 'report';
 
 export interface RecordEntry {
   id: string;
@@ -18,7 +19,31 @@ export interface RecordEntry {
   outcome: SimResult['outcome'];
   date: string;
   design: Design;
+  team?: boolean;
 }
+
+/** This device's view of a team room. The room's state itself is owned by the host. */
+export interface TeamLocal {
+  isHost: boolean;
+  myId: string;
+  status: 'connecting' | 'online' | 'lost';
+  /** Why the connection failed or ended. */
+  error: L | null;
+  state: TeamState | null;
+}
+
+/** Filled in by the network layer. The store calls it so it never imports the network code (no import cycle). */
+export interface TeamHooks {
+  patch: (p: Partial<Design>) => void;
+  toggle: (id: string) => void;
+  relaunch: () => void;
+  back: () => void;
+  leave: () => void;
+}
+let hooks: TeamHooks | null = null;
+export const setTeamHooks = (h: TeamHooks | null) => {
+  hooks = h;
+};
 
 interface Store {
   lang: Lang;
@@ -29,46 +54,19 @@ interface Store {
   sim: SimResult | null;
   records: RecordEntry[];
   playerName: string;
+  team: TeamLocal | null;
   setLang: (l: Lang) => void;
   setDifficulty: (d: Difficulty) => void;
+  setPlayerName: (n: string) => void;
   open: (scenarioId: string) => void;
   patch: (p: Partial<Design>) => void;
   toggleInstrument: (id: string) => void;
   resetDesign: () => void;
   launch: () => void;
+  redesign: () => void;
   goto: (s: Screen) => void;
   saveRecord: (r: Omit<RecordEntry, 'id' | 'date'>) => void;
   loadShared: (scenarioId: string, difficulty: Difficulty, design: Design) => void;
-}
-
-/** Keeps a saved or shared design valid for the scenario and difficulty it is opened in. */
-export function sanitize(d: Design, sc: Scenario, diff: Difficulty): Design {
-  const base = emptyDesign(sc);
-  const allowAdvanced = diff !== 'cadet';
-  const ok = <T extends { id: string; advanced?: boolean }>(list: T[], id: string | null, fallback: string) => {
-    const item = byId(list, id);
-    return item && (allowAdvanced || !item.advanced) ? item.id : fallback;
-  };
-  const vehicle = byId(VEHICLES, d.vehicle);
-  return {
-    ...base,
-    ...d,
-    orbit: d.orbit && scenarioOrbits(sc).includes(d.orbit) ? d.orbit : null,
-    instruments: (d.instruments ?? []).filter((id) => {
-      const i = byId(INSTRUMENTS, id);
-      return i && (allowAdvanced || !i.advanced);
-    }),
-    power: ok(POWER, d.power, base.power),
-    battery: ok(BATTERIES, d.battery, base.battery),
-    comms: ok(ANTENNAS, d.comms, base.comms),
-    computer: ok(COMPUTERS, d.computer, base.computer),
-    adcs: ok(ADCS, d.adcs, base.adcs),
-    propulsion: ok(PROPULSION, d.propulsion, base.propulsion),
-    structure: ok(STRUCTURES, d.structure, base.structure),
-    vehicle: vehicle && (allowAdvanced || !vehicle.advanced) ? vehicle.id : null,
-    redundancy: allowAdvanced ? d.redundancy ?? 'single' : 'single',
-    lifeYears: Math.min(10, Math.max(1, Math.round(d.lifeYears || sc.targetYears))),
-  };
 }
 
 export const useStore = create<Store>()(
@@ -82,8 +80,10 @@ export const useStore = create<Store>()(
       sim: null,
       records: [],
       playerName: '',
+      team: null,
       setLang: (lang) => set({ lang }),
       setDifficulty: (difficulty) => set({ difficulty }),
+      setPlayerName: (playerName) => set({ playerName }),
       open: (scenarioId) => {
         const sc = scenarioById(scenarioId);
         const { designs, difficulty } = get();
@@ -91,24 +91,36 @@ export const useStore = create<Store>()(
         set({ scenarioId, screen: 'studio', sim: null, designs: { ...designs, [scenarioId]: design } });
       },
       patch: (p) => {
+        if (get().team) return hooks?.patch(p);
         const { designs, scenarioId } = get();
         set({ designs: { ...designs, [scenarioId]: { ...currentDesign(get()), ...p } } });
       },
       toggleInstrument: (id) => {
+        if (get().team) return hooks?.toggle(id);
         const d = currentDesign(get());
         const has = d.instruments.includes(id);
         get().patch({ instruments: has ? d.instruments.filter((x) => x !== id) : [...d.instruments, id] });
       },
       resetDesign: () => {
+        if (get().team) return;
         const { designs, scenarioId } = get();
         set({ designs: { ...designs, [scenarioId]: emptyDesign(scenarioById(scenarioId)) } });
       },
       launch: () => {
         const s = get();
+        // In a team the host's referee picks the seed, so every screen replays the same flight.
+        if (s.team) return hooks?.relaunch();
         const seed = Math.floor(Math.random() * 2 ** 31);
         set({ sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, seed), screen: 'flight' });
       },
-      goto: (screen) => set({ screen }),
+      redesign: () => {
+        if (get().team) return hooks?.back();
+        set({ screen: 'studio' });
+      },
+      goto: (screen) => {
+        if (screen === 'home' && get().team) hooks?.leave();
+        set({ screen });
+      },
       saveRecord: (r) =>
         set((s) => ({
           playerName: r.name,
@@ -130,7 +142,7 @@ export const useStore = create<Store>()(
     {
       name: 'mission-forge',
       version: 1,
-      // A flight in progress is not saved: reloading returns you to the drawing board.
+      // A flight in progress or a team room is not saved: reloading returns you to the drawing board.
       partialize: (s) => ({
         lang: s.lang,
         scenarioId: s.scenarioId,
@@ -138,14 +150,14 @@ export const useStore = create<Store>()(
         designs: s.designs,
         records: s.records,
         playerName: s.playerName,
-        screen: s.screen === 'home' ? 'home' : 'studio',
+        screen: s.team || s.screen === 'home' ? 'home' : 'studio',
       }),
     },
   ),
 );
 
-export function currentDesign(s: Pick<Store, 'designs' | 'scenarioId'>): Design {
-  return s.designs[s.scenarioId] ?? emptyDesign(scenarioById(s.scenarioId));
+export function currentDesign(s: Pick<Store, 'designs' | 'scenarioId' | 'team'>): Design {
+  return s.team?.state?.design ?? s.designs[s.scenarioId] ?? emptyDesign(scenarioById(s.scenarioId));
 }
 
 export const useDesign = () => useStore(currentDesign);

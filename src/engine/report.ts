@@ -3,7 +3,14 @@ import { clamp, fmt } from './evaluate';
 import type { Design, Difficulty, Evaluation, Insight, L, Measure, Report, Scenario, ScoreLine, SimResult } from './types';
 
 /** Turns a flown mission into a score and a plain-language explanation of why it went the way it did. */
-export function buildReport(d: Design, sc: Scenario, diff: Difficulty, ev: Evaluation, sim: SimResult): Report {
+export function buildReport(
+  d: Design,
+  sc: Scenario,
+  diff: Difficulty,
+  ev: Evaluation,
+  sim: SimResult,
+  team?: { met: number; total: number },
+): Report {
   const lines: ScoreLine[] = [];
   const line = (id: string, label: L, share: number, max: number) =>
     lines.push({ id, label, points: Math.round(clamp(share) * max), max });
@@ -20,8 +27,13 @@ export function buildReport(d: Design, sc: Scenario, diff: Difficulty, ev: Evalu
   line('schedule', { ru: 'Соблюдение сроков', en: 'On schedule' }, 1 - (ev.time.devMonths - ev.time.deadline) / 12, 50);
   line('disposal', { ru: 'Чистота космоса', en: 'Clean space' }, ev.dv.disposalOk ? 1 : 0, 50);
 
+  // Teams are also judged on how many of the four roles' personal goals the final design satisfies.
+  if (team && team.total > 0) line('teamwork', { ru: 'Согласованность команды', en: 'Team coordination' }, team.met / team.total, 100);
+
+  // Scores stay on a 0-1000 scale whether or not the team line exists.
   const raw = lines.reduce((a, l) => a + l.points, 0);
-  const total = Math.round(raw * DIFFICULTY[diff].scoreFactor);
+  const maxRaw = lines.reduce((a, l) => a + l.max, 0);
+  const total = Math.round((raw / maxRaw) * 1000 * DIFFICULTY[diff].scoreFactor);
   const grade = total >= 920 ? 'S' : total >= 820 ? 'A' : total >= 700 ? 'B' : total >= 550 ? 'C' : total >= 400 ? 'D' : 'F';
 
   const insights: Insight[] = [];
@@ -129,6 +141,18 @@ export function buildReport(d: Design, sc: Scenario, diff: Difficulty, ev: Evalu
       ru: 'Аппарат без двигателя нельзя увести с орбиты после завершения работы. Он будет угрожать другим спутникам десятки лет.',
       en: 'A spacecraft with no engine cannot be removed once its work is done. It will endanger other satellites for decades.',
     });
+
+  if (team && team.total > 0) {
+    const all = team.met === team.total;
+    tell(all ? 'good' : 'warn', { ru: `Цели ролей: ${team.met} из ${team.total}`, en: `Role goals: ${team.met} of ${team.total}` }, {
+      ru: all
+        ? 'Каждая роль получила то, что ей было нужно: команда нашла компромисс, при котором никто не остался в проигрыше.'
+        : 'У ролей разные интересы, и в одном проекте их не всегда удаётся совместить. Обсудите, какая цель стоит того, чтобы пожертвовать другой, — именно так принимаются решения в настоящих миссиях.',
+      en: all
+        ? 'Every role got what it needed: the team found a compromise where nobody lost out.'
+        : 'Roles want different things and one design cannot always satisfy them all. Discuss which goal is worth trading for another — real missions are decided exactly this way.',
+    });
+  }
 
   if (sim.outcome === 'success' && !sim.lost)
     tell('good', { ru: 'Цель миссии достигнута', en: 'Mission objective achieved' }, {

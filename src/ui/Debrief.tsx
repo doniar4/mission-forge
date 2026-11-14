@@ -3,9 +3,10 @@ import { DIFFICULTY } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { buildReport } from '../engine/report';
 import { scenarioById } from '../engine/scenarios';
+import { goalsFor, memberName, teamwork, ROLE_LIST } from '../engine/team';
 import { useT } from '../i18n';
 import { useDesign, useStore } from '../store';
-import { TopBar } from './common';
+import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
 import { Spacecraft } from './Spacecraft';
 
@@ -15,13 +16,19 @@ export function Debrief() {
   const scenarioId = useStore((s) => s.scenarioId);
   const difficulty = useStore((s) => s.difficulty);
   const goto = useStore((s) => s.goto);
+  const redesign = useStore((s) => s.redesign);
+  const team = useStore((s) => s.team);
   const launch = useStore((s) => s.launch);
   const saveRecord = useStore((s) => s.saveRecord);
   const playerName = useStore((s) => s.playerName);
   const design = useDesign();
   const sc = scenarioById(scenarioId);
   const ev = useMemo(() => evaluate(design, sc, difficulty), [design, sc, difficulty]);
-  const report = useMemo(() => buildReport(design, sc, difficulty, ev, sim), [design, sc, difficulty, ev, sim]);
+  const goals = useMemo(() => (team ? goalsFor(sc, ev) : []), [team, sc, ev]);
+  const report = useMemo(
+    () => buildReport(design, sc, difficulty, ev, sim, team ? teamwork(goals) : undefined),
+    [design, sc, difficulty, ev, sim, team, goals],
+  );
   const [name, setName] = useState(playerName);
   const [saved, setSaved] = useState(false);
   const factor = DIFFICULTY[difficulty].scoreFactor;
@@ -61,7 +68,7 @@ export function Debrief() {
                 )}
           </p>
           <div className="actions">
-            <button type="button" className="primary" onClick={() => goto('studio')}>
+            <button type="button" className="primary" onClick={redesign}>
               {t('Доработать проект', 'Improve the design')}
             </button>
             <button type="button" className="secondary" onClick={launch}>
@@ -129,6 +136,37 @@ export function Debrief() {
             </section>
           )}
 
+          {team?.state && (
+            <section className="block">
+              <h2>{t('Цели ролей', 'Role goals')}</h2>
+              <ul className="goals">
+                {ROLE_LIST.map((r) => (
+                  <li key={r} data-role={r}>
+                    <b>
+                      {t(ROLES[r].name)}
+                      <span className="muted"> {memberName(team.state!, team.state!.owners[r])}</span>
+                    </b>
+                    <ul>
+                      {goals
+                        .filter((g) => g.role === r)
+                        .map((g) => (
+                          <li key={g.id} data-met={g.met}>
+                            <span className="goal-mark" aria-hidden="true">
+                              {g.met ? '✓' : '✗'}
+                            </span>
+                            <span>
+                              <span className="sr-only">{g.met ? t('Выполнено: ', 'Done: ') : t('Не выполнено: ', 'Not done: ')}</span>
+                              {t(g.label)}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="block">
             <h2>{t('Аппарат', 'The spacecraft')}</h2>
             <Spacecraft design={design} ev={ev} />
@@ -153,6 +191,7 @@ export function Debrief() {
                     grade: report.grade,
                     outcome: sim.outcome,
                     design,
+                    team: !!team,
                   });
                   setSaved(true);
                 }}

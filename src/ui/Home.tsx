@@ -4,6 +4,7 @@ import type { Difficulty, Role } from '../engine/types';
 import { useT } from '../i18n';
 import { useStore } from '../store';
 import { BodyGlyph, ROLES, Stars, TopBar } from './common';
+import { TeamEntry } from './Team';
 
 const DESTINATION = {
   earth: { ru: 'Орбита Земли', en: 'Earth orbit' },
@@ -86,6 +87,8 @@ export function Home() {
         </ul>
       </section>
 
+      <TeamEntry />
+
       <div className="two-col">
         <section className="block">
           <h2>{t('Лучшие миссии', 'Best missions')}</h2>
@@ -132,8 +135,8 @@ export function Home() {
           <h2>{t('Четыре роли одной команды', 'Four roles, one team')}</h2>
           <p className="muted">
             {t(
-              'Проект разбит на зоны ответственности, как в настоящей команде. Сейчас все четыре роли ведёт один игрок; совместная игра по сети для четырёх участников — в разработке.',
-              'The design is split into areas of responsibility, as in a real team. For now one player holds all four roles; online play for four people is in development.',
+              'В командной игре роли делят между собой до трёх человек, и у каждой роли свои разделы и цели. В одиночной игре все четыре роли ведёте вы.',
+              'In team play up to three people share the roles, and each role has its own sections and goals. Playing alone, you hold all four.',
             )}
           </p>
           <ul className="roles">

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { DIFFICULTY } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
+import { goalsFor, memberName, rolesOf } from '../engine/team';
 import type { Check, Evaluation, L, Role } from '../engine/types';
 import { useT } from '../i18n';
 import { shareLink, useDesign, useStore } from '../store';
@@ -17,6 +18,7 @@ import {
   type SectionId,
 } from './Sections';
 import { Spacecraft } from './Spacecraft';
+import { LostBanner, TeamPanel, useTeamState } from './Team';
 
 const SECTIONS: { id: SectionId; role: Role; name: L }[] = [
   { id: 'brief', role: 'manager', name: { ru: 'Задача', en: 'Objective' } },
@@ -66,9 +68,13 @@ export function Studio() {
   const design = useDesign();
   const sc = scenarioById(scenarioId);
   const ev = useMemo(() => evaluate(design, sc, difficulty), [design, sc, difficulty]);
+  const team = useTeamState();
+  const goals = useMemo(() => goalsFor(sc, ev), [sc, ev]);
   const [section, setSection] = useState<SectionId>('brief');
   const [copied, setCopied] = useState(false);
 
+  const current = SECTIONS.find((x) => x.id === section)!;
+  const canEdit = !team?.state || section === 'brief' || rolesOf(team.state, team.myId).includes(current.role);
   const issues = (id: SectionId) => ev.checks.filter((c) => WHERE[c.id] === id);
   const props = { design, ev, sc };
 
@@ -87,28 +93,40 @@ export function Studio() {
       <TopBar
         left={
           <>
-            <button type="button" className="link" onClick={() => goto('home')}>
-              {t('Все миссии', 'All missions')}
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                if (!team || window.confirm(t('Выйти из комнаты? Проект команды останется у остальных.', 'Leave the room? The team’s design stays with the others.'))) goto('home');
+              }}
+            >
+              {team ? t('Выйти из комнаты', 'Leave the room') : t('Все миссии', 'All missions')}
             </button>
             <span className="crumb">
               {t(sc.name)}, {t(DIFFICULTY[difficulty].name).toLowerCase()}
+              {team?.state && t(`, комната ${team.state.code}`, `, room ${team.state.code}`)}
             </span>
           </>
         }
       >
-        <button type="button" className="link" onClick={copy}>
-          {copied ? t('Ссылка скопирована', 'Link copied') : t('Скопировать ссылку на проект', 'Copy link to design')}
-        </button>
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            if (window.confirm(t('Очистить проект и начать заново?', 'Clear the design and start over?'))) resetDesign();
-          }}
-        >
-          {t('Очистить проект', 'Clear design')}
-        </button>
+        {!team && (
+          <>
+            <button type="button" className="link" onClick={copy}>
+              {copied ? t('Ссылка скопирована', 'Link copied') : t('Скопировать ссылку на проект', 'Copy link to design')}
+            </button>
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                if (window.confirm(t('Очистить проект и начать заново?', 'Clear the design and start over?'))) resetDesign();
+              }}
+            >
+              {t('Очистить проект', 'Clear design')}
+            </button>
+          </>
+        )}
       </TopBar>
+      <LostBanner />
 
       <div className="studio-grid">
         <nav className="rail" aria-label={t('Разделы проекта', 'Design sections')}>
@@ -140,9 +158,21 @@ export function Studio() {
         </nav>
 
         <main className="sheet" key={section}>
-          <p className="owner" data-role={SECTIONS.find((s) => s.id === section)!.role}>
-            {t(ROLES[SECTIONS.find((s) => s.id === section)!.role].name)}
+          <p className="owner" data-role={current.role}>
+            {t(ROLES[current.role].name)}
+            {team?.state && section !== 'brief' && (
+              <span className="muted"> {t('— ведёт', '— held by')} {memberName(team.state, team.state.owners[current.role])}</span>
+            )}
           </p>
+          {!canEdit && (
+            <p className="readonly" role="note">
+              {t(
+                'Этот раздел ведёт другой участник. Вы видите всё, но менять можете только свои разделы. Предложите правку в обсуждении.',
+                'Another player holds this section. You can see everything but change only your own sections. Propose an edit in the discussion.',
+              )}
+            </p>
+          )}
+          <fieldset className="edit" disabled={!canEdit}>
           {section === 'brief' && <BriefSection {...props} />}
           {section === 'orbit' && <OrbitSection {...props} />}
           {section === 'payload' && <PayloadSection {...props} />}
@@ -150,6 +180,7 @@ export function Studio() {
           {section === 'platform' && <PlatformSection {...props} />}
           {section === 'comms' && <CommsSection {...props} />}
           {section === 'plan' && <PlanSection {...props} />}
+          </fieldset>
           <SectionNext section={section} onGo={setSection} />
         </main>
 
@@ -157,24 +188,28 @@ export function Studio() {
           <Spacecraft design={design} ev={ev} />
           <Budgets ev={ev} />
           <Review checks={ev.checks} onGo={setSection} />
-          <div className="launch">
-            <button type="button" className="primary" disabled={ev.blockers > 0} onClick={launch}>
-              {t('Запустить миссию', 'Launch the mission')}
-            </button>
-            <p className="muted">
-              {ev.blockers > 0
-                ? t(
-                    `Комиссия не допустит к запуску, пока не закрыты обязательные замечания: ${ev.blockers}.`,
-                    `The review board will not clear the launch until the required findings are closed: ${ev.blockers}.`,
-                  )
-                : ev.checks.length > 0
+          {team ? (
+            <TeamPanel goals={goals} blockers={ev.blockers} />
+          ) : (
+            <div className="launch">
+              <button type="button" className="primary" disabled={ev.blockers > 0} onClick={launch}>
+                {t('Запустить миссию', 'Launch the mission')}
+              </button>
+              <p className="muted">
+                {ev.blockers > 0
                   ? t(
-                      'Запуск разрешён. Предупреждения не запрещают полёт, но их последствия проявятся в космосе.',
-                      'Cleared for launch. Warnings do not stop the flight, but their consequences will show up in space.',
+                      `Комиссия не допустит к запуску, пока не закрыты обязательные замечания: ${ev.blockers}.`,
+                      `The review board will not clear the launch until the required findings are closed: ${ev.blockers}.`,
                     )
-                  : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
-            </p>
-          </div>
+                  : ev.checks.length > 0
+                    ? t(
+                        'Запуск разрешён. Предупреждения не запрещают полёт, но их последствия проявятся в космосе.',
+                        'Cleared for launch. Warnings do not stop the flight, but their consequences will show up in space.',
+                      )
+                    : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
+              </p>
+            </div>
+          )}
         </aside>
       </div>
     </div>
