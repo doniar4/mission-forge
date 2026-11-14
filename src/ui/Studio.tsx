@@ -17,7 +17,7 @@ import {
   PowerSection,
   type SectionId,
 } from './Sections';
-import { Spacecraft } from './Spacecraft';
+import { Craft3D } from './Craft3D';
 import { LostBanner, TeamPanel, useTeamState } from './Team';
 
 const SECTIONS: { id: SectionId; role: Role; name: L }[] = [
@@ -57,6 +57,9 @@ const WHERE: Record<string, SectionId> = {
   storage: 'comms',
   radiation: 'comms',
 };
+
+/** The order in which a newcomer should clear the required findings. */
+const FIRST = ['no_orbit', 'no_instruments', 'no_engine', 'magnetic', 'tank_limit', 'bus_power', 'ion_power', 'no_vehicle', 'vehicle_reach', 'overweight', 'over_budget'];
 
 export function Studio() {
   const t = useT();
@@ -127,6 +130,7 @@ export function Studio() {
         )}
       </TopBar>
       <LostBanner />
+      <Coach checks={ev.checks} onGo={setSection} />
 
       <div className="studio-grid">
         <nav className="rail" aria-label={t('Разделы проекта', 'Design sections')}>
@@ -185,7 +189,7 @@ export function Studio() {
         </main>
 
         <aside className="spec" aria-label={t('Сводка проекта', 'Design summary')}>
-          <Spacecraft design={design} ev={ev} />
+          <Craft3D design={design} ev={ev} />
           <Budgets ev={ev} />
           <Review checks={ev.checks} onGo={setSection} />
           {team ? (
@@ -212,6 +216,46 @@ export function Studio() {
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/** One thing to do next, in plain words: the first required finding, or the go-ahead. */
+function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void }) {
+  const t = useT();
+  const required = checks.filter((c) => c.level === 'blocker').sort((a, b) => FIRST.indexOf(a.id) - FIRST.indexOf(b.id));
+  const risks = checks.length - required.length;
+  const next = required[0];
+  const where = next && WHERE[next.id] ? SECTIONS.find((s) => s.id === WHERE[next.id]) : undefined;
+  return (
+    <div className="coach" data-state={next ? 'todo' : risks ? 'risk' : 'ready'} role="status">
+      <span className="coach-label">
+        {next
+          ? t(`Следующий шаг · обязательных замечаний: ${required.length}`, `Next step · required findings: ${required.length}`)
+          : t('Допуск к запуску', 'Cleared for launch')}
+      </span>
+      <b>
+        {next
+          ? t(next.title)
+          : risks
+            ? t(`Проект можно запускать. Принятых рисков: ${risks}`, `The design can fly. Accepted risks: ${risks}`)
+            : t('Замечаний нет — проект готов к запуску', 'No findings — the design is ready to fly')}
+      </b>
+      <span className="coach-why">
+        {next
+          ? t(next.why)
+          : risks
+            ? t(
+                'Риски не запрещают полёт, но их последствия проявятся в космосе. Список — в замечаниях комиссии.',
+                'Risks do not stop the flight, but their consequences will show up in space. They are listed under the review board findings.',
+              )
+            : t('Комиссия проверила массу, энергию, связь, бюджет и сроки.', 'The board has checked mass, power, comms, budget and schedule.')}
+      </span>
+      {where && (
+        <button type="button" className="secondary small" onClick={() => onGo(where.id)}>
+          {t(`Открыть раздел «${where.name.ru}»`, `Open ${where.name.en}`)}
+        </button>
+      )}
     </div>
   );
 }

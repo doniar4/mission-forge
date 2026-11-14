@@ -4,3 +4,5 @@ dist
 *.local
 .vite
 coverage
+__pycache__
+*.blend1

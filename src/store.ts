@@ -156,8 +156,17 @@ export const useStore = create<Store>()(
   ),
 );
 
+// One blank design per mission. A selector must return the same object for the same state,
+// or React re-renders for ever when a saved game has a screen but no draft.
+const blank = new Map<string, Design>();
+function blankDesign(scenarioId: string): Design {
+  let d = blank.get(scenarioId);
+  if (!d) blank.set(scenarioId, (d = emptyDesign(scenarioById(scenarioId))));
+  return d;
+}
+
 export function currentDesign(s: Pick<Store, 'designs' | 'scenarioId' | 'team'>): Design {
-  return s.team?.state?.design ?? s.designs[s.scenarioId] ?? emptyDesign(scenarioById(s.scenarioId));
+  return s.team?.state?.design ?? s.designs[s.scenarioId] ?? blankDesign(s.scenarioId);
 }
 
 export const useDesign = () => useStore(currentDesign);
