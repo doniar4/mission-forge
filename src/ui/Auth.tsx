@@ -100,9 +100,14 @@ export function Auth() {
 
       <section className="auth-panel" aria-live="polite">
         {!authConfigured ? (
-          <NotConfigured />
+          <GuestOnly />
         ) : status === 'loading' ? (
-          <p className="auth-wait">{t('Подключаемся…', 'Connecting…')}</p>
+          <div className="auth-card auth-skeleton" aria-busy="true" aria-label={t('Загрузка', 'Loading')}>
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
         ) : signed ? (
           <SignedIn />
         ) : (
@@ -398,31 +403,18 @@ function SignedIn() {
   );
 }
 
-function NotConfigured() {
+/** Only if a build drops the Supabase settings: no excuses on screen, just the way into the game. */
+function GuestOnly() {
   const t = useT();
   const goto = useStore((s) => s.goto);
   return (
-    <div className="auth-card auth-setup">
-      <h2>{t('Вход пока не подключён', 'Accounts are not set up yet')}</h2>
-      <p>
-        {t(
-          'Этой копии игры не дали адрес проекта Supabase. Играть можно и так — все проекты и рекорды хранятся в браузере.',
-          'This copy of the game has no Supabase project to sign in to. You can still play — designs and records are kept in your browser.',
-        )}
-      </p>
-      <details>
-        <summary>{t('Для разработчиков', 'For developers')}</summary>
-        <p>
-          {t('Адрес проекта и publishable-ключ задаются в', 'The project URL and publishable key live in')} <code>src/auth/supabase.ts</code>
-          {t(' или переменными', ', or in the variables')} <code>VITE_SUPABASE_URL</code> {t('и', 'and')} <code>VITE_SUPABASE_ANON_KEY</code>
-          {t(' при сборке.', ' at build time.')}
-        </p>
-      </details>
-      <div className="auth-row">
-        <button type="button" className="primary" onClick={() => goto('home')}>
-          {t('Играть как гость', 'Play as a guest')}
-        </button>
-      </div>
+    <div className="auth-card">
+      <button type="button" className="auth-submit" onClick={() => goto('home')}>
+        <span>{t('Играть как гость', 'Play as a guest')}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </button>
     </div>
   );
 }
