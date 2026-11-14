@@ -3,7 +3,7 @@ import { evaluate, propellantFor } from './evaluate';
 import { buildReport } from './report';
 import { emptyDesign, scenarioById } from './scenarios';
 import { simulate } from './simulate';
-import { INSTRUMENTS } from './catalog';
+import { ADCS, ANTENNAS, BATTERIES, COMPUTERS, INSTRUMENTS, POWER, TESTING, VEHICLES } from './catalog';
 import type { Design, Measure } from './types';
 
 /**
@@ -163,6 +163,59 @@ describe('instrument classes', () => {
     const ev = evaluate({ ...design('firewatch'), power: 'body' }, sc, 'engineer');
     expect(ev.power.margin).toBeLessThan(0);
     expect(ev.data.generated).toBeGreaterThan(10);
+  });
+});
+
+describe('platform components', () => {
+  const rising = <T,>(list: T[], keys: (keyof T)[]) => {
+    for (let i = 1; i < list.length; i++)
+      for (const k of keys) expect(list[i][k] as number, `${String(k)} of item ${i}`).toBeGreaterThan(list[i - 1][k] as number);
+  };
+
+  it('a bigger choice always costs more mass and money: nothing is free', () => {
+    rising(POWER.filter((p) => p.solar), ['watts', 'mass', 'cost']);
+    rising(BATTERIES, ['wh', 'mass', 'cost']);
+    rising(ANTENNAS.filter((x) => x.id !== 'laser'), ['mbps', 'mass', 'power', 'cost']);
+    rising(COMPUTERS, ['storage', 'mass', 'power', 'cost']);
+    rising(ADCS, ['pointing', 'mass', 'power', 'cost']);
+    rising(VEHICLES, ['leoKg', 'cost']);
+    rising(TESTING, ['cost', 'months']);
+  });
+
+  it('a single station of your own cannot carry a mission at the Moon or beyond', () => {
+    for (const id of ['lunarice', 'sentinel', 'marsweather']) {
+      const sc = scenarioById(id);
+      const own = evaluate({ ...design(id), ground: 'own' }, sc, 'engineer');
+      const dsn = evaluate({ ...design(id), ground: 'dsn' }, sc, 'engineer');
+      expect(own.checks.map((c) => c.id), id).toContain('data_bottleneck');
+      expect(dsn.data.downlink, id).toBeGreaterThan(own.data.downlink * 20);
+    }
+  });
+
+  it('an entry-level payload gets by on a cheaper radio than a standard one', () => {
+    const sc = scenarioById('lunarice');
+    const ids = (rung: Rung) => evaluate({ ...design('lunarice', rung), comms: 'sband' }, sc, 'engineer').checks.map((c) => c.id);
+    expect(ids('entry')).not.toContain('data_bottleneck');
+    expect(ids('std')).toContain('data_bottleneck');
+  });
+
+  const average = (d: Design, id: string) => {
+    const sc = scenarioById(id);
+    const ev = evaluate(d, sc, 'engineer');
+    let wins = 0;
+    for (let seed = 1; seed <= 200; seed++) if (simulate(d, sc, 'engineer', seed).outcome === 'success') wins++;
+    return { wins, cost: ev.cost.total };
+  };
+
+  it('a backup set and thorough testing buy reliability with money', () => {
+    const single = average({ ...design('ocean'), redundancy: 'single' }, 'ocean');
+    const backup = average({ ...design('ocean'), redundancy: 'redundant' }, 'ocean');
+    expect(backup.wins).toBeGreaterThan(single.wins + 15);
+    expect(backup.cost).toBeGreaterThan(single.cost);
+    const quick = average({ ...design('marsweather'), testing: 'minimal' }, 'marsweather');
+    const thorough = average({ ...design('marsweather'), testing: 'extensive' }, 'marsweather');
+    expect(thorough.wins).toBeGreaterThan(quick.wins + 15);
+    expect(thorough.cost).toBeGreaterThan(quick.cost);
   });
 });
 
