@@ -206,6 +206,27 @@ export interface Design {
   testing: Testing['id'];
   vehicle: string | null;
   lifeYears: number;
+  /** Development events drawn when the design went into production, and the choices made (engine/development.ts). */
+  dev?: DevRecord;
+}
+
+export type DevKind = 'mass' | 'budget' | 'delay' | 'power' | 'test' | 'gift';
+
+export interface DevEvent {
+  kind: DevKind;
+  /** What the event is about: an instrument id (mass, gift) or a part kind (delay: comms, power, adcs). */
+  target?: string;
+  /** How bad it is: a share (mass growth, budget cut, power loss), months (delay) or a risk factor (test). */
+  size: number;
+  /** Who decides in a team. */
+  role: Role;
+}
+
+export interface DevRecord {
+  seed: number;
+  events: DevEvent[];
+  /** The option chosen for each event, null while undecided. */
+  choices: (string | null)[];
 }
 
 export interface Check {
@@ -277,6 +298,12 @@ export interface Evaluation {
     target: number;
     /** Projected science as a share of the target, before anything goes wrong. */
     projected: number;
+    /**
+     * The honest forecast: a likely range, not a promise. Wide while development is ahead
+     * (instruments may grow, budgets may shrink) and narrower once it is done; flight risks
+     * (launch, failures) pull the low end down.
+     */
+    range: [number, number];
   };
   launchReliability: number;
   checks: Check[];

@@ -1,6 +1,7 @@
 import { play } from '../audio/sfx';
 import { useEffect, useMemo, useState } from 'react';
 import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
+import { devDone, devStarted } from '../engine/development';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
 import { goalsFor, memberName, rolesOf } from '../engine/team';
@@ -40,7 +41,7 @@ export function Studio() {
   const scenarioId = useStore((s) => s.scenarioId);
   const difficulty = useStore((s) => s.difficulty);
   const goto = useStore((s) => s.goto);
-  const launch = useStore((s) => s.launch);
+  const develop = useStore((s) => s.develop);
   const patch = useStore((s) => s.patch);
   const toggle = useStore((s) => s.toggleInstrument);
   const resetDesign = useStore((s) => s.resetDesign);
@@ -285,10 +286,10 @@ export function Studio() {
                 disabled={ev.blockers > 0}
                 onClick={() => {
                   play('beep');
-                  launch();
+                  develop();
                 }}
               >
-                <span>{t('На старт', 'To the pad')}</span>
+                <span>{devDone(design) ? t('На старт', 'To the pad') : devStarted(design) ? t('К разработке', 'Back to development') : t('В разработку', 'Into development')}</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
@@ -296,9 +297,11 @@ export function Studio() {
               <p className="muted small-print">
                 {ev.blockers > 0
                   ? t(`Комиссия не допустит к запуску: обязательных замечаний ${ev.blockers}.`, `The board will not clear the launch: ${ev.blockers} required findings.`)
-                  : ev.checks.length > 0
-                    ? t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but they will show up in space.')
-                    : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
+                  : !devDone(design)
+                    ? t('Перед запуском — разработка: несколько событий, которые изменят проект.', 'Before launch comes development: a few events that will change the design.')
+                    : ev.checks.length > 0
+                      ? t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but they will show up in space.')
+                      : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
               </p>
             </div>
           )}
@@ -516,11 +519,47 @@ function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; s
   return worst.k < 0.999 ? { text: worst.text, section: worst.section } : null;
 }
 
-function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
+/**
+ * The honest forecast: a likely range of the science, never one number. Wide until development is
+ * done; even then a flight can surprise. Hidden until there is an orbit and an instrument.
+ */
+export function ForecastRange({ ev, design }: { ev: Evaluation; design: Design }) {
+  const t = useT();
+  const [lo, hi] = ev.science.range;
+  if (!design.orbit || design.instruments.length === 0 || hi <= 0) return null;
+  const scale = 1.5;
+  const state = lo >= 1 ? 'ok' : hi >= 1 ? 'tight' : 'over';
+  return (
+    <div className="forecast range" data-state={state}>
+      <div className="gauge-row">
+        <span className="gauge-label">{t('Ожидаемая наука', 'Expected science')}</span>
+        <span className="gauge-value">
+          {t.n(lo * 100)}–{t.pct(hi)}
+        </span>
+      </div>
+      <div
+        className="gauge-track forecast-track"
+        role="img"
+        aria-label={t(`Ожидаемая наука: от ${t.pct(lo)} до ${t.pct(hi)} цели заказчика`, `Expected science: ${t.pct(lo)} to ${t.pct(hi)} of the customer’s target`)}
+      >
+        <div className="range-band" style={{ left: `${Math.min(100, (lo / scale) * 100)}%`, width: `${Math.max(2, Math.min(100, ((hi - lo) / scale) * 100))}%` }} />
+        <i className="range-target" style={{ left: `${100 / scale}%` }} />
+      </div>
+      <p className="gauge-hint">
+        {devDone(design)
+          ? t('Разработка позади. Остальное решит полёт.', 'Development is behind you. The flight decides the rest.')
+          : t('Вилка сузится после разработки. Точно — только в полёте.', 'The range narrows after development. Only the flight tells for sure.')}
+      </p>
+    </div>
+  );
+}
+
+export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
   const weak = weakestLink(ev, design, sc);
   return (
     <div className="budgets">
+      <ForecastRange ev={ev} design={design} />
       {weak && (
         <button type="button" className="weak-link" onClick={() => onGo(weak.section)}>
           <span className="weak-label">{t('Слабое место', 'Weakest link')}</span>

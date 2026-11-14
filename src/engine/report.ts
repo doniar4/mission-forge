@@ -1,4 +1,5 @@
-import { DIFFICULTY, MEASURES } from './catalog';
+import { DIFFICULTY, INSTRUMENTS, MEASURES, byId } from './catalog';
+import { describe as describeDev, devMods } from './development';
 import { clamp, fmt } from './evaluate';
 import type { Design, Difficulty, Evaluation, Insight, L, Measure, Report, Scenario, ScoreLine, SimResult } from './types';
 
@@ -152,6 +153,32 @@ export function buildReport(
       en: all
         ? 'Every role got what it needed: the team found a compromise where nobody lost out.'
         : 'Roles want different things and one design cannot always satisfy them all. Discuss which goal is worth trading for another — real missions are decided exactly this way.',
+    });
+  }
+
+  // Development: what happened on the way to the pad, and what was decided.
+  if (d.dev && d.dev.events.length) {
+    const lines = d.dev.events.map((e, i) => {
+      const story = describeDev(e, d);
+      const option = story.options.find((o) => o.id === d.dev!.choices[i]);
+      return {
+        ru: `${story.title.ru} — ${option ? option.label.ru.toLowerCase() : 'без решения'}`,
+        en: `${story.title.en} — ${option ? option.label.en.toLowerCase() : 'undecided'}`,
+      };
+    });
+    const m = devMods(d);
+    const paid: L[] = [];
+    if (m.cost > 0.05) paid.push({ ru: `$${fmt(m.cost)} млн`, en: `$${fmt(m.cost)}M` });
+    if (m.months > 0) paid.push({ ru: `${m.months} мес.`, en: `${m.months} months` });
+    if (m.budget < 1) paid.push({ ru: `${pct(1 - m.budget)}% бюджета`, en: `${pct(1 - m.budget)}% of the budget` });
+    const grown = Object.entries(m.instMass).reduce((a, [id, share]) => a + (byId(INSTRUMENTS, id)?.mass ?? 0) * share, 0);
+    if (grown >= 0.5) paid.push({ ru: `+${fmt(grown)} кг`, en: `+${fmt(grown)} kg` });
+    if (m.power < 1) paid.push({ ru: `−${pct(1 - m.power)}% энергии панелей`, en: `−${pct(1 - m.power)}% array power` });
+    if (m.risk > 1) paid.push({ ru: 'больше отказов в полёте', en: 'more failures in flight' });
+    const end = (s: string) => (s.endsWith('.') ? s : `${s}.`);
+    tell(paid.length ? 'warn' : 'good', { ru: 'Разработка', en: 'Development' }, {
+      ru: `${lines.map((l) => l.ru).join('; ')}. ${paid.length ? end(`Цена неожиданностей: ${paid.map((p) => p.ru).join(', ')}`) : 'Неожиданности обошлись почти даром.'} Запас массы, денег и времени нужен именно для этого.`,
+      en: `${lines.map((l) => l.en).join('; ')}. ${paid.length ? end(`The surprises cost ${paid.map((p) => p.en).join(', ')}`) : 'The surprises cost almost nothing.'} This is exactly what margins of mass, money and time are for.`,
     });
   }
 

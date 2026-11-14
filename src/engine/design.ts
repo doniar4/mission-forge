@@ -1,4 +1,5 @@
 import { ADCS, ANTENNAS, BATTERIES, COMPUTERS, INSTRUMENTS, POWER, PROPULSION, STRUCTURES, VEHICLES, byId } from './catalog';
+import { cleanDev } from './development';
 import { emptyDesign, scenarioOrbits } from './scenarios';
 import type { Design, Difficulty, Scenario } from './types';
 
@@ -33,5 +34,7 @@ export function sanitize(d: Design, sc: Scenario, diff: Difficulty): Design {
     testing,
     ground,
     lifeYears: Math.min(10, Math.max(1, Math.round(Number(d.lifeYears) || sc.targetYears))),
+    // Development events travel with the design; a malformed record is dropped.
+    dev: cleanDev(d.dev),
   };
 }
