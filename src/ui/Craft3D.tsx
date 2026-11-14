@@ -18,6 +18,8 @@ export function Craft3D({
   focus = [],
   backdrop = 'earth',
   offset = [0, 0],
+  rocket = null,
+  inspect = false,
 }: {
   design: Design;
   ev: Evaluation;
@@ -25,6 +27,10 @@ export function Craft3D({
   focus?: string[];
   backdrop?: Backdrop;
   offset?: [number, number];
+  /** On the rocket step: the launch vehicle to show instead of the spacecraft. */
+  rocket?: string | null;
+  /** Free look: no leaning towards parts, wider zoom. */
+  inspect?: boolean;
 }) {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -65,6 +71,13 @@ export function Craft3D({
   useEffect(() => {
     if (state === 'ready') stage.current?.setBackdrop(backdrop);
   }, [backdrop, state]);
+  useEffect(() => {
+    if (state === 'ready') stage.current?.setRocket(rocket);
+  }, [rocket, state]);
+  useEffect(() => {
+    if (state === 'ready') stage.current?.setInspect(inspect);
+    if (state === 'ready' && !inspect) stage.current?.setFocus(focusKey ? focusKey.split('|') : []);
+  }, [inspect, state]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (state === 'ready') stage.current?.setOffset(offset[0], offset[1]);
   }, [offset[0], offset[1], state]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -25,16 +25,18 @@ import type { Translator } from '../../i18n';
  * the numbers that matter for that decision.
  */
 
-export type SectionId = 'brief' | 'orbit' | 'payload' | 'power' | 'platform' | 'comms' | 'plan';
+export type SectionId = 'brief' | 'orbit' | 'rocket' | 'payload' | 'power' | 'platform' | 'comms' | 'plan';
 
 export const SECTIONS: { id: SectionId; role: Role; name: L; focus: string[] }[] = [
   { id: 'brief', role: 'manager', name: { ru: 'Задача', en: 'Objective' }, focus: [] },
   { id: 'orbit', role: 'science', name: { ru: 'Орбита', en: 'Orbit' }, focus: [] },
+  // The rocket comes before the spacecraft: it sets the mass limit everything else has to fit.
+  { id: 'rocket', role: 'manager', name: { ru: 'Ракета', en: 'Rocket' }, focus: [] },
   { id: 'payload', role: 'science', name: { ru: 'Приборы', en: 'Instruments' }, focus: ['inst:'] },
   { id: 'power', role: 'engineer', name: { ru: 'Энергия', en: 'Power' }, focus: ['power:'] },
   { id: 'platform', role: 'engineer', name: { ru: 'Платформа', en: 'Platform' }, focus: ['adcs:', 'propulsion:'] },
   { id: 'comms', role: 'comms', name: { ru: 'Связь', en: 'Comms' }, focus: ['comms:'] },
-  { id: 'plan', role: 'manager', name: { ru: 'Запуск', en: 'Launch' }, focus: [] },
+  { id: 'plan', role: 'manager', name: { ru: 'План', en: 'Plan' }, focus: [] },
 ];
 
 /** Which section fixes which review finding. */
@@ -42,10 +44,10 @@ export const WHERE: Record<string, SectionId> = {
   no_orbit: 'orbit',
   no_instruments: 'payload',
   uncovered: 'payload',
-  no_vehicle: 'plan',
-  vehicle_reach: 'plan',
-  overweight: 'plan',
-  mass_margin: 'plan',
+  no_vehicle: 'rocket',
+  vehicle_reach: 'rocket',
+  overweight: 'rocket',
+  mass_margin: 'rocket',
   over_budget: 'plan',
   late: 'plan',
   disposal: 'platform',
@@ -65,37 +67,44 @@ export const WHERE: Record<string, SectionId> = {
   radiation: 'comms',
 };
 
-/** The short lesson behind each section: why this decision matters. */
+/** The short lesson behind each section: why this decision matters, in one sentence. */
 export const LESSONS: Record<SectionId, L> = {
   brief: {
-    ru: 'Цель достигнута, когда аппарат передал на Землю столько науки, сколько хороший набор приборов собирает за заданный срок. Дойти до неё можно разными путями.',
-    en: 'The objective is met once the spacecraft has sent home as much science as a good payload gathers in the requested time. There is more than one way to get there.',
+    ru: 'Цель — передать на Землю нужный объём науки за срок заказчика. Путей к ней несколько.',
+    en: 'The goal is to send home enough science within the customer’s time. There is more than one way.',
   },
   orbit: {
-    ru: 'Орбита — первое и самое дорогое решение: она определяет, что увидят приборы, сколько аппарат проводит в тени, как далеко лететь сигналу и какую часть груза ракета туда довезёт.',
-    en: 'The orbit is the first and most expensive decision: it sets what the instruments see, how long the spacecraft sits in shadow, how far the signal travels and how much payload a rocket can deliver.',
+    ru: 'Орбита решает, что увидят приборы, сколько света получат панели и сколько груза довезёт ракета.',
+    en: 'The orbit decides what the instruments see, how much light the arrays get and how much a rocket can carry.',
+  },
+  rocket: {
+    ru: 'Ракета задаёт предел массы: всё, что вы поставите на аппарат, должно в неё поместиться.',
+    en: 'The rocket sets the mass limit: everything you put on the spacecraft has to fit.',
   },
   payload: {
-    ru: 'Ради приборов строится весь аппарат. Но каждый тянет за собой цепочку: масса → топливо → ракета; мощность → панели → батарея; данные → антенна → станции.',
-    en: 'The instruments are why the spacecraft exists. But each one pulls a chain behind it: mass → fuel → rocket; power → arrays → battery; data → antenna → stations.',
+    ru: 'Каждый прибор добавляет массу, энергию, данные и цену. Берите то, что нужно задаче.',
+    en: 'Every instrument adds mass, power, data and cost. Take what the objective needs.',
   },
   power: {
-    ru: 'Солнечные панели работают только на свету, поэтому важна средняя выработка за виток. В тени аппарат живёт на батарее — её должно хватить с запасом.',
-    en: 'Solar arrays only work in sunlight, so what matters is the average over an orbit. In shadow the spacecraft lives off its battery, which must cover it with room to spare.',
+    ru: 'Панели работают только на свету, в тени аппарат живёт на батарее.',
+    en: 'Arrays work only in sunlight; in shadow the spacecraft lives on its battery.',
   },
   platform: {
-    ru: 'Платформа наводит приборы и двигает аппарат. Масса топлива растёт по формуле Циолковского экспоненциально: каждый лишний метр в секунду обходится всё дороже.',
-    en: 'The platform points the instruments and moves the spacecraft. Propellant grows exponentially with the rocket equation: each extra metre per second costs more than the last.',
+    ru: 'Ориентация наводит приборы, двигатель держит орбиту. Топливо растёт быстрее, чем манёвр.',
+    en: 'Attitude control points the instruments, the engine holds the orbit. Fuel grows faster than the burn.',
   },
   comms: {
-    ru: 'До Земли доходит скорость антенны × время связи со станциями. Чем дальше аппарат, тем слабее сигнал. Компьютер хранит данные между сеансами и может их сжимать.',
-    en: 'What reaches Earth is antenna rate × contact time. The farther the spacecraft, the fainter the signal. The computer stores data between contacts and can compress it.',
+    ru: 'До Земли доходит скорость антенны × время связи. Чем дальше аппарат, тем слабее сигнал.',
+    en: 'What reaches Earth is antenna rate × contact time. The farther away, the fainter the signal.',
   },
   plan: {
-    ru: 'Здесь сходятся риск, деньги и время. Надёжная ракета и долгие испытания стоят дорого, но аппарат в космосе не починить.',
-    en: 'This is where risk, money and time meet. A reliable rocket and long test campaigns are costly, but nothing can be repaired in space.',
+    ru: 'Испытания и резерв стоят денег, но в космосе ничего не починить.',
+    en: 'Testing and backups cost money, but nothing can be repaired in space.',
   },
 };
+
+/** Card descriptions start with the class ("Entry class. …"); the badge already says it. */
+const withoutClass = (s: string) => s.replace(/^(Базовый|Стандартный|Профессиональный) класс\.\s*|^(Entry|Standard|Professional) class\.\s*/, '');
 
 export interface Card {
   id: string;
@@ -203,32 +212,43 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
         },
       ];
     case 'payload': {
+      // One tab per class: cheap and light, the working standard, the best money can buy.
       const useful = (i: (typeof INSTRUMENTS)[number]) => (Object.keys(i.measures) as Measure[]).reduce((a, m) => a + (sc.weights[m] ?? 0) * i.measures[m]!, 0);
-      return [
-        {
-          kind: 'rail',
-          id: 'payload',
+      const HINT: Record<1 | 2 | 3, L> = {
+        1: { ru: 'Дёшево и легко: хватит примерно на половину цели.', en: 'Cheap and light: good for about half the goal.' },
+        2: { ru: 'Рабочий стандарт: набор таких приборов выполняет цель.', en: 'The working standard: a set of these meets the goal.' },
+        3: { ru: 'Лучшее качество за большую массу, энергию и цену.', en: 'The best quality, for more mass, power and money.' },
+      };
+      return ([1, 2, 3] as const).map((tier) => {
+        const list = allowed(INSTRUMENTS.filter((i) => i.tier === tier)).sort((a, b) => useful(b) - useful(a));
+        const on = design.instruments.filter((id) => list.some((i) => i.id === id)).length;
+        return {
+          kind: 'rail' as const,
+          id: `payload-${tier}`,
           multi: true,
-          title: t('Научные приборы', 'Science instruments'),
-          hint: t('Можно взять несколько. Первыми идут те, что нужны задаче.', 'Take as many as you like. The ones this objective needs come first.'),
-          cards: allowed([...INSTRUMENTS].sort((a, b) => useful(b) - useful(a) || a.tier - b.tier)).map((i) => ({
-            ...base(i.id, i.name, i.desc, `inst_${i.id}`),
+          title: `${t(TIERS[tier]).replace(/ класс$| class$/, '')}${on ? ` · ${on}` : ''}`,
+          hint: t(HINT[tier]),
+          cards: list.map((i) => ({
+            ...base(i.id, i.name, { ru: withoutClass(i.desc.ru), en: withoutClass(i.desc.en) }, `inst_${i.id}`),
             tier: { level: i.tier, name: t(TIERS[i.tier]) },
             stats: [
-              { label: t('Масса', 'Mass'), value: kg(i.mass) },
+              { label: t('Масса', 'Mass'), value: kg(i.mass, i.mass < 1 ? 1 : 0) },
               { label: t('Мощность', 'Power'), value: w(i.power) },
-              { label: t('Данные', 'Data'), value: `${t.n(i.data, 2)} ${t('ГБ/сут', 'GB/day')}` },
+              { label: t('Данные', 'Data'), value: `${t.n(i.data, i.data < 1 ? 2 : 0)} ${t('ГБ/сут', 'GB/day')}` },
               { label: t('Цена', 'Cost'), value: t.money(i.cost) },
             ],
+            // Only what this mission measures, and the one demand that changes the platform.
             tags: [
-              ...(Object.keys(i.measures) as Measure[]).map((m) => ({ text: t(MEASURES[m]), good: !sc.sandbox && (sc.weights[m] ?? 0) > 0 })),
-              ...(i.pointing === 3 ? [{ text: t('нужно точное наведение', 'needs fine pointing') }] : []),
+              ...(Object.keys(i.measures) as Measure[])
+                .filter((m) => sc.sandbox || (sc.weights[m] ?? 0) > 0)
+                .map((m) => ({ text: t(MEASURES[m]), good: !sc.sandbox })),
+              ...(i.pointing === 3 ? [{ text: t('точное наведение', 'fine pointing') }] : []),
             ],
           })),
           selected: design.instruments,
-          pick: (id) => ({ instruments: design.instruments.includes(id) ? design.instruments.filter((x) => x !== id) : [...design.instruments, id] }),
-        },
-      ];
+          pick: (id: string) => ({ instruments: design.instruments.includes(id) ? design.instruments.filter((x) => x !== id) : [...design.instruments, id] }),
+        };
+      });
     }
     case 'power': {
       const here = (watts: number, solar: boolean) => (solar && orbit ? watts * orbit.solarFactor * orbit.sunFraction : watts);
@@ -376,7 +396,7 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
           pick: (id) => ({ computer: id }),
         },
       ];
-    case 'plan':
+    case 'rocket':
       return [
         {
           kind: 'rail',
@@ -402,6 +422,9 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
           selected: [design.vehicle ?? ''],
           pick: (id) => ({ vehicle: id }),
         },
+      ];
+    case 'plan':
+      return [
         {
           kind: 'years',
           id: 'years',

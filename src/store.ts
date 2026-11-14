@@ -1,3 +1,4 @@
+import { setMuted } from './audio/sfx';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sanitize } from './engine/design';
@@ -56,6 +57,9 @@ interface Store {
   playerName: string;
   team: TeamLocal | null;
   setLang: (l: Lang) => void;
+  /** Game sounds on or off; remembered between visits. */
+  sound: boolean;
+  setSound: (on: boolean) => void;
   setDifficulty: (d: Difficulty) => void;
   setPlayerName: (n: string) => void;
   open: (scenarioId: string) => void;
@@ -82,6 +86,11 @@ export const useStore = create<Store>()(
       playerName: '',
       team: null,
       setLang: (lang) => set({ lang }),
+      sound: true,
+      setSound: (sound) => {
+        setMuted(!sound);
+        set({ sound });
+      },
       setDifficulty: (difficulty) => set({ difficulty }),
       setPlayerName: (playerName) => set({ playerName }),
       open: (scenarioId) => {
@@ -142,9 +151,13 @@ export const useStore = create<Store>()(
     {
       name: 'mission-forge',
       version: 1,
+      onRehydrateStorage: () => (s) => {
+        if (s) setMuted(!s.sound);
+      },
       // A flight in progress or a team room is not saved: reloading returns you to the drawing board.
       partialize: (s) => ({
         lang: s.lang,
+        sound: s.sound,
         scenarioId: s.scenarioId,
         difficulty: s.difficulty,
         designs: s.designs,

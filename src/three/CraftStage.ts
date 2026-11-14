@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { Design } from '../engine/types';
 import type { Assets } from './assets';
 import { buildCraft, type Craft } from './craft';
+import { buildRocket } from './rocket';
 import { makePlanet, makeStars, makeSun, type BodyId, type Planet } from './planet';
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -22,6 +23,10 @@ function shadowTexture(): THREE.Texture {
 }
 
 export type Backdrop = BodyId | 'sun';
+
+/** Rockets are shown 1:16 (the heaviest, about 70 m, fits a frame of ROCKET_FRAME units). */
+const ROCKET_SCALE = 1 / 16;
+const ROCKET_FRAME = 4.6;
 
 export interface CraftStageOptions {
   still: boolean;
@@ -57,6 +62,10 @@ export class CraftStage {
   private sunDir = new THREE.Vector3(-0.72, 0.42, 0.55).normalize();
   private clock = 0;
   private last = performance.now();
+  /** The launch vehicle shown instead of the spacecraft on the rocket step. */
+  private rocket: THREE.Object3D | null = null;
+  private rocketId: string | null = null;
+  private zoomRange: [number, number] = [0.45, 1.8];
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -112,7 +121,11 @@ export class CraftStage {
     this.controls.addEventListener('end', () => {
       this.idleUntil = performance.now() + 7000;
     });
-    if (space) canvas.addEventListener('wheel', this.wheel, { passive: false });
+    if (space) {
+      canvas.addEventListener('wheel', this.wheel, { passive: false });
+      canvas.addEventListener('touchstart', this.pinch, { passive: true });
+      canvas.addEventListener('touchmove', this.pinch, { passive: true });
+    }
 
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(canvas.parentElement ?? canvas);
@@ -120,10 +133,59 @@ export class CraftStage {
     this.raf = requestAnimationFrame(this.frame);
   }
 
+  /** Two-finger pinch on a touch screen zooms like the mouse wheel. */
+  private pinchFrom = 0;
+  private pinch = (e: TouchEvent) => {
+    if (e.touches.length !== 2) {
+      this.pinchFrom = 0;
+      return;
+    }
+    const [a, b] = [e.touches[0], e.touches[1]];
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (e.type === 'touchmove' && this.pinchFrom > 0) this.zoom = clamp((this.zoom * this.pinchFrom) / d, this.zoomRange[0], this.zoomRange[1]);
+    this.pinchFrom = d;
+  };
+
   private wheel = (e: WheelEvent) => {
     e.preventDefault();
-    this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.45, 1.8);
+    this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), this.zoomRange[0], this.zoomRange[1]);
   };
+
+  /**
+   * Free look: the player turns and zooms the spacecraft as they like, closer and farther than
+   * usual, and the camera stops leaning towards the parts being chosen.
+   */
+  setInspect(on: boolean) {
+    this.zoomRange = on ? [0.2, 2.6] : [0.45, 1.8];
+    // While inspecting, every touch belongs to the model (no page scroll or page zoom).
+    this.canvas.style.touchAction = on ? 'none' : 'pan-y';
+    this.zoom = clamp(this.zoom, this.zoomRange[0], this.zoomRange[1]);
+    this.controls.autoRotate = !on && !this.opts.still;
+    this.idleUntil = 0;
+    if (on) this.focusTags = [];
+    this.aim();
+  }
+
+  /** Shows a launch vehicle in place of the spacecraft (null brings the spacecraft back). */
+  setRocket(id: string | null) {
+    if (id === this.rocketId) return;
+    this.rocketId = id;
+    if (this.rocket) this.scene.remove(this.rocket);
+    this.rocket = null;
+    if (id) {
+      const r = buildRocket(id, this.assets);
+      for (const p of [r.corePlume, r.upperPlume, ...r.boosterPlumes]) p.mesh.visible = false;
+      // One scale for every rocket, so a small launcher looks small beside a heavy one.
+      const holder = new THREE.Group();
+      holder.add(r.root);
+      holder.scale.setScalar(ROCKET_SCALE);
+      holder.position.y = -ROCKET_FRAME * 0.42;
+      this.rocket = holder;
+      this.scene.add(holder);
+    }
+    if (this.craft) this.craft.root.visible = !id;
+    this.aim();
+  }
 
   /** The destination underneath the spacecraft. */
   setBackdrop(body: Backdrop) {
@@ -174,6 +236,13 @@ export class CraftStage {
   }
 
   private aim() {
+    if (this.rocket) {
+      const vfov = THREE.MathUtils.degToRad(this.camera.fov);
+      // Aim a little high so the rocket clears the part slider at the bottom of the screen.
+      this.target.set(0, -0.35, 0);
+      this.distance = (ROCKET_FRAME / 2 / Math.tan(vfov / 2)) * 1.45;
+      return;
+    }
     const c = this.craft;
     if (!c) return;
     const box = new THREE.Box3();
@@ -193,6 +262,7 @@ export class CraftStage {
     const next = buildCraft(design, dryKg, this.assets);
     if (this.craft) this.scene.remove(this.craft.root);
     this.scene.add(next.root);
+    next.root.visible = !this.rocket;
     const first = this.craft === null;
     this.craft = next;
 
@@ -268,6 +338,8 @@ export class CraftStage {
     cancelAnimationFrame(this.raf);
     this.observer.disconnect();
     this.canvas.removeEventListener('wheel', this.wheel);
+    this.canvas.removeEventListener('touchstart', this.pinch);
+    this.canvas.removeEventListener('touchmove', this.pinch);
     this.controls.dispose();
     this.scene.environment?.dispose();
     this.renderer.dispose();

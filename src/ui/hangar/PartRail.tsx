@@ -177,18 +177,20 @@ export function PartRail({
                 </span>
               </span>
               <span className="part-body">
-                {c.tier && (
-                  <span className="part-tier" data-tier={c.tier.level}>
-                    <i aria-hidden="true" />
-                    <i aria-hidden="true" />
-                    <i aria-hidden="true" />
-                    {c.tier.name}
-                  </span>
-                )}
-                <span className="part-name">{c.name}</span>
+                <span className="part-name">
+                  {c.tier && (
+                    <span className="part-tier" data-tier={c.tier.level} title={c.tier.name}>
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <span className="sr-only">{c.tier.name}</span>
+                    </span>
+                  )}
+                  {c.name}
+                </span>
                 {d && !on && <Deltas d={d} />}
                 {d && on && multi && (
-                  <span className="part-state">{t('в составе — нажмите, чтобы снять', 'on board — press to remove')}</span>
+                  <span className="part-state">{t('на борту', 'on board')}</span>
                 )}
                 {on && !multi && <span className="part-state">{t('установлено', 'fitted')}</span>}
                 {c.warning && <span className="part-warning">{c.warning}</span>}

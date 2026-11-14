@@ -36,12 +36,35 @@ export function LangToggle() {
   );
 }
 
+/** Sound on/off, next to the language switch. */
+export function SoundToggle() {
+  const t = useT();
+  const sound = useStore((s) => s.sound);
+  const setSound = useStore((s) => s.setSound);
+  return (
+    <button
+      type="button"
+      className="icon-btn"
+      aria-pressed={sound}
+      aria-label={sound ? t('Выключить звук', 'Turn sound off') : t('Включить звук', 'Turn sound on')}
+      title={sound ? t('Выключить звук', 'Turn sound off') : t('Включить звук', 'Turn sound on')}
+      onClick={() => setSound(!sound)}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h4l5-4v14l-5-4H4z" />
+        {sound ? <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /> : <path d="M16 9l5 6M21 9l-5 6" />}
+      </svg>
+    </button>
+  );
+}
+
 export function TopBar({ left, children }: { left?: ReactNode; children?: ReactNode }) {
   return (
     <header className="topbar">
       <div className="topbar-left">{left}</div>
       <div className="topbar-right">
         {children}
+        <SoundToggle />
         <LangToggle />
       </div>
     </header>
@@ -109,6 +132,7 @@ export function Gauge({
   hint,
   digits = 0,
   twoSided = false,
+  fix,
 }: {
   label: string;
   used: number;
@@ -117,6 +141,8 @@ export function Gauge({
   hint?: string;
   digits?: number;
   twoSided?: boolean;
+  /** What to change when the limit is broken, shown only then. */
+  fix?: string;
 }) {
   const t = useT();
   // What the last decision did to this resource, shown for a moment: every choice has a price.
@@ -161,6 +187,7 @@ export function Gauge({
         <div className="gauge-fill" style={{ width: `${Math.min(100, ratio * 100)}%` }} />
       </div>
       {hint && <p className="gauge-hint">{hint}</p>}
+      {fix && (state === 'over' || state === 'none') && <p className="gauge-fix">{fix}</p>}
     </div>
   );
 }
