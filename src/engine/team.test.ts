@@ -112,11 +112,58 @@ describe('team room', () => {
     expect(s.ready).toEqual({});
   });
 
-  it('frees a leaving player’s roles', () => {
+  it('frees a leaving player’s roles in the lobby', () => {
+    let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
+    s = send(s, 'p1', { t: 'hello', name: 'Boris' });
+    s = send(s, 'p1', { t: 'claim', role: 'science' });
+    s = send(s, 'p1', { t: 'drop' });
+    expect(s.owners.science).toBeNull();
+    expect(s.members.map((m) => m.id)).toEqual(['host']);
+  });
+
+  it('hands a leaver’s roles to the least busy player while designing', () => {
     let s = room();
     s = send(s, 'p2', { t: 'drop' });
-    expect(s.owners.engineer).toBeNull();
+    // The host already holds two roles, Boris one: the engineer's sections go to Boris.
+    expect(s.owners.engineer).toBe('p1');
     expect(s.members.map((m) => m.id)).toEqual(['host', 'p1']);
+    expect(rolesOf(s, 'p1')).toEqual(['science', 'engineer']);
+  });
+
+  it('does not wait for the sign-off of someone who left', () => {
+    let s = solve(room());
+    s = send(s, 'host', { t: 'ready', ready: true });
+    s = send(s, 'p1', { t: 'ready', ready: true });
+    expect(s.phase).toBe('design');
+    // Clara never signs off and closes her tab: the engineer's role goes to Boris, who must look
+    // at the new sections and sign off again; then the mission flies.
+    s = send(s, 'p2', { t: 'drop' });
+    expect(s.phase).toBe('design');
+    expect(s.ready.p1).toBeUndefined();
+    expect(s.ready.host).toBe(true);
+    s = send(s, 'p1', { t: 'ready', ready: true });
+    expect(s.phase).toBe('flight');
+    expect(s.seed).toBe(7);
+  });
+
+  it('launches at once when the leaver’s roles go to someone who had already signed off', () => {
+    let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
+    s = send(s, 'p1', { t: 'hello', name: 'Boris' });
+    s = send(s, 'host', { t: 'claim', role: 'manager' });
+    s = send(s, 'host', { t: 'claim', role: 'comms' });
+    s = send(s, 'host', { t: 'claim', role: 'science' });
+    s = send(s, 'p1', { t: 'claim', role: 'engineer' });
+    s = send(s, 'host', { t: 'start' });
+    s = send(s, 'host', { t: 'patch', patch: { orbit: 'sso', instruments: ['thermal_ir', 'cam_wide'], comms: 'xband', ground: 'network', computer: 'standard', vehicle: 'rideshare', lifeYears: 4 } });
+    s = send(s, 'p1', { t: 'patch', patch: { power: 'small', battery: 'b500', adcs: 'wheels', propulsion: 'mono' } });
+    s = send(s, 'host', { t: 'ready', ready: true });
+    // The engineer leaves; the host now holds every role, but has not seen the engineer's sections
+    // as their own yet, so the sign-off is asked for again.
+    s = send(s, 'p1', { t: 'drop' });
+    expect(rolesOf(s, 'host')).toEqual(['manager', 'science', 'engineer', 'comms']);
+    expect(s.phase).toBe('design');
+    s = send(s, 'host', { t: 'ready', ready: true });
+    expect(s.phase).toBe('flight');
   });
 
   it('keeps the last sixty chat lines and ignores empty ones', () => {

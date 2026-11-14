@@ -97,6 +97,25 @@ export const owners = (s: TeamState): string[] => [...new Set(ROLE_LIST.map((r) 
 
 const sameDesign = (a: Design, b: Design) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Gives every free role to the member with the fewest roles, so duties spread evenly. */
+function fillRoles(own: Record<Role, string | null>, members: Member[]): Record<Role, string | null> {
+  const next = { ...own };
+  if (members.length === 0) return next;
+  for (const role of ROLE_LIST) {
+    if (next[role]) continue;
+    const load = (id: string) => ROLE_LIST.filter((r) => next[r] === id).length;
+    next[role] = [...members].sort((a, b) => load(a.id) - load(b.id))[0].id;
+  }
+  return next;
+}
+
+/** Launches when every role has an owner and every owner has signed off on a design the board clears. */
+function maybeLaunch(s: TeamState, seed: number): TeamState {
+  if (s.phase !== 'design' || !allRolesOwned(s) || !owners(s).every((id) => s.ready[id])) return s;
+  if (evaluate(s.design, scenarioById(s.scenarioId), s.difficulty).blockers > 0) return s;
+  return { ...s, phase: 'flight', seed };
+}
+
 function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number }): TeamState {
   const isHost = from === HOST;
   const known = s.members.some((m) => m.id === from);
@@ -111,10 +130,17 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
   switch (msg.t) {
     case 'drop': {
       if (isHost) return s;
-      const own = { ...s.owners };
+      const members = s.members.filter((m) => m.id !== from);
+      let own = { ...s.owners };
       for (const r of ROLE_LIST) if (own[r] === from) own[r] = null;
-      const { [from]: _gone, ...ready } = s.ready;
-      return { ...s, members: s.members.filter((m) => m.id !== from), owners: own, ready };
+      // While designing, a departure must not leave the team waiting for a sign-off that will never
+      // come: the leaver's roles go to whoever holds the fewest. Their new owners have not seen these
+      // sections yet, so they sign off again. In the lobby the roles simply become free.
+      const handed = s.phase === 'design' ? ROLE_LIST.filter((r) => s.owners[r] === from) : [];
+      if (handed.length) own = fillRoles(own, members);
+      const ready: Record<string, boolean> = {};
+      for (const [id, ok] of Object.entries(s.ready)) if (id !== from && !handed.some((r) => own[r] === id)) ready[id] = ok;
+      return maybeLaunch({ ...s, members, owners: own, ready }, ctx.seed);
     }
     case 'name': {
       const name = clean(msg.name, 20);
@@ -131,14 +157,7 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
     }
     case 'auto': {
       if (!isHost || s.phase === 'flight') return s;
-      const own = { ...s.owners };
-      for (const role of ROLE_LIST) {
-        if (own[role]) continue;
-        // The least-loaded member takes the next free role, so duties spread evenly.
-        const load = (id: string) => ROLE_LIST.filter((r) => own[r] === id).length;
-        own[role] = [...s.members].sort((a, b) => load(a.id) - load(b.id))[0].id;
-      }
-      return { ...s, owners: own, ready: {} };
+      return { ...s, owners: fillRoles(s.owners, s.members), ready: {} };
     }
     case 'setup': {
       if (!isHost || s.phase !== 'lobby' || !SCENARIOS.some((x) => x.id === msg.scenarioId)) return s;
@@ -175,9 +194,7 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
         const sc = scenarioById(s.scenarioId);
         if (evaluate(s.design, sc, s.difficulty).blockers > 0) return s;
       }
-      const ready = { ...s.ready, [from]: !!msg.ready };
-      const go = allRolesOwned(s) && owners(s).every((id) => ready[id]);
-      return go ? { ...s, ready, phase: 'flight', seed: ctx.seed } : { ...s, ready };
+      return maybeLaunch({ ...s, ready: { ...s.ready, [from]: !!msg.ready } }, ctx.seed);
     }
     case 'chat': {
       const text = clean(msg.text, 240);
