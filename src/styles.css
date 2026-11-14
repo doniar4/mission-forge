@@ -6324,3 +6324,55 @@ kbd {
     animation: none;
   }
 }
+
+/* Sign in and sign up, side by side on the home page and under the form. */
+.account-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.account-btn.account-signup {
+  padding: 0 16px;
+  border-color: transparent;
+  background: linear-gradient(100deg, var(--orange), #ff8a4c);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 10px 24px -12px var(--orange-glow);
+}
+.account-btn.account-signup:hover,
+.account-btn.account-signup:focus-visible {
+  border-color: transparent;
+  background: linear-gradient(100deg, #ff7d45, #ff9a66);
+}
+@media (max-width: 600px) {
+  .account-btn.account-signup {
+    width: auto;
+    padding: 0 12px;
+    font-size: 0.8125rem;
+  }
+}
+.auth-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+.auth-switch-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 600;
+  transition: border-color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.auth-switch-btn:hover,
+.auth-switch-btn:focus-visible {
+  border-color: var(--orange);
+  background: rgba(255, 107, 44, 0.12);
+}
