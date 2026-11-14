@@ -378,17 +378,6 @@ function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () 
             <dd>{t(`${sc.targetYears} г.`, `${sc.targetYears} yr`)}</dd>
           </div>
         </dl>
-        <ol className="how">
-          <li>
-            <b>{t('Орбита и ракета.', 'Orbit and rocket.')}</b> {t('Ракета задаёт предел массы.', 'The rocket sets the mass limit.')}
-          </li>
-          <li>
-            <b>{t('Аппарат.', 'Spacecraft.')}</b> {t('Приборы, энергия, связь — держите шкалы слева ниже предела.', 'Instruments, power, comms — keep the gauges on the left under their limits.')}
-          </li>
-          <li>
-            <b>{t('Запуск.', 'Launch.')}</b> {t('Когда комиссия даст допуск, жмите «На старт».', 'When the board clears you, press “To the pad”.')}
-          </li>
-        </ol>
         <button type="button" className="primary" onClick={onStart}>
           {t('Начать сборку', 'Start building')}
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -472,13 +461,6 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
             : t('Проект готов к запуску', 'The design is ready to fly')}
       </b>
       <span className="coach-why">{next ? t(next.why) : t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but will show up in space.')}</span>
-      {checks.length > 0 && (
-        <span className="coach-legend">
-          <i data-level="blocker" aria-hidden="true" /> {t('обязательно исправить', 'must fix')}
-          <i data-level="warn" aria-hidden="true" /> {t('риск', 'risk')}
-          <span> · {t('цифра на вкладке — сколько там замечаний', 'the number on a tab counts its findings')}</span>
-        </span>
-      )}
       {where && (
         <button type="button" className="ghost small" onClick={() => onGo(where.id)}>
           {t(`К разделу «${where.name.ru}»`, `Go to ${where.name.en}`)}
