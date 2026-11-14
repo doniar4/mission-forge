@@ -164,7 +164,7 @@ export function Gauge({
   const ratio = limit > 0 ? used / limit : used > 0 ? 2 : 0;
   const state = limit <= 0 && used > 0 ? 'none' : ratio > 1 ? 'over' : ratio > 0.9 ? 'tight' : 'ok';
   return (
-    <div className="gauge" data-state={state}>
+    <div className="gauge" data-state={state} title={hint}>
       <div className="gauge-row">
         <span className="gauge-label">
           {label}

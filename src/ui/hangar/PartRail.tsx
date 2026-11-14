@@ -93,7 +93,7 @@ export function PartRail({
         </div>
       )}
 
-      <div className="rail-stage" role="group" aria-roledescription={t('карусель', 'carousel')} aria-label={group.title} onKeyDown={onKey}>
+      <div className="rail-stage" role="group" aria-roledescription={t('карусель', 'carousel')} aria-label={group.title} title={group.hint} onKeyDown={onKey}>
         <button type="button" className="rail-arrow" onClick={() => go(index - 1)} disabled={index === 0} aria-label={t('Предыдущий вариант', 'Previous option')}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" />
@@ -128,22 +128,24 @@ export function PartRail({
               <span>{card.name}</span>
               {on && <span className="part-state">{multi ? t('на борту', 'on board') : t('установлено', 'fitted')}</span>}
             </div>
-            <p className="part-desc">
+            <p className="part-desc" title={card.desc}>
               {card.desc}
               {card.note && <span className="rail-note"> {card.note}</span>}
             </p>
-            {card.stats.length > 0 && (
-              <dl className="part-stats">
-                {card.stats.map((s) => (
-                  <div key={s.label}>
-                    <dt>{s.label}</dt>
-                    <dd>{s.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            <div className="part-facts">
+              {card.stats.length > 0 && (
+                <dl className="part-stats">
+                  {card.stats.map((s) => (
+                    <div key={s.label}>
+                      <dt>{s.label}</dt>
+                      <dd>{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {d && !on && <Deltas d={d} />}
+            </div>
             {card.warning && <span className="part-warning">{card.warning}</span>}
-            {d && !on && <Deltas d={d} />}
             {card.tags && card.tags.some((g) => g.good) && (
               <span className="part-tags">
                 {card.tags

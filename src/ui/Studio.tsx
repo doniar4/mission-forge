@@ -136,7 +136,7 @@ export function Studio() {
         variant="stage"
         focus={inspect ? [] : current.focus}
         backdrop={backdrop}
-        offset={wide && !inspect ? [0, 0.17] : [0, 0]}
+        offset={wide && !inspect ? [0, 0.06] : [0, 0]}
         rocket={section === 'rocket' && !inspect ? shown.vehicle : null}
         inspect={inspect}
       />
@@ -346,7 +346,7 @@ export function Studio() {
         )}
 
         <div className="dock-body">
-          {section === 'brief' && <Brief sc={sc} ev={ev} onStart={() => go('orbit')} />}
+          {section === 'brief' && <Brief sc={sc} ev={ev} />}
           {rail && <PartRail group={rail} deltas={cardDeltas} disabled={!canEdit} showTitle={groups.length < 2} onPick={(id) => pick(rail, id)} onPreview={setHover} />}
           {group?.kind === 'years' && <Years design={design} sc={sc} title={group.title} hint={group.hint} disabled={!canEdit} onChange={(y) => patch({ lifeYears: y })} />}
         </div>
@@ -356,7 +356,7 @@ export function Studio() {
   );
 }
 
-function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () => void }) {
+function Brief({ sc, ev }: { sc: Scenario; ev: Evaluation }) {
   const t = useT();
   const weights = (Object.entries(sc.weights) as [Measure, number][]).sort((a, b) => b[1] - a[1]).slice(0, sc.sandbox ? 11 : 6);
   return (
@@ -378,12 +378,6 @@ function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () 
             <dd>{t(`${sc.targetYears} г.`, `${sc.targetYears} yr`)}</dd>
           </div>
         </dl>
-        <button type="button" className="primary" onClick={onStart}>
-          {t('Начать сборку', 'Start building')}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </button>
       </div>
       <div className="brief-needs">
         <h3>{t('Что нужно измерить', 'What has to be measured')}</h3>
