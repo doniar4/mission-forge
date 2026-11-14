@@ -10,7 +10,7 @@ import type { TeamState } from './engine/team';
 import type { Design, Difficulty, L, SimResult } from './engine/types';
 
 export type Lang = 'ru' | 'en';
-export type Screen = 'home' | 'lobby' | 'studio' | 'dev' | 'flight' | 'report';
+export type Screen = 'home' | 'auth' | 'lobby' | 'studio' | 'dev' | 'flight' | 'report';
 
 export interface RecordEntry {
   id: string;
@@ -198,7 +198,7 @@ export const useStore = create<Store>()(
         designs: s.designs,
         records: s.records,
         playerName: s.playerName,
-        screen: s.team || s.screen === 'home' ? 'home' : 'studio',
+        screen: s.team || s.screen === 'home' || s.screen === 'auth' ? 'home' : 'studio',
       }),
     },
   ),
