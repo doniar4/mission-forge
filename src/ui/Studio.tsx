@@ -383,13 +383,16 @@ function Brief({ sc, ev }: { sc: Scenario; ev: Evaluation }) {
         <h3>{t('Что нужно измерить', 'What has to be measured')}</h3>
         <ul className="needs">
           {weights.map(([m, w]) => {
-            const q = ev.science.quality[m] ?? 0;
+            // Only whether something on board measures it — how well is found out in flight.
+            const covered = (ev.science.quality[m] ?? 0) > 0;
             return (
-              <li key={m}>
+              <li key={m} data-covered={covered || undefined}>
                 <span className="needs-name">{t(MEASURES[m])}</span>
-                <span className="needs-weight">{t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)}</span>
-                <span className="needs-bar" role="img" aria-label={t(`закрыто на ${Math.round(q * 100)}%`, `${Math.round(q * 100)}% covered`)}>
-                  <i style={{ width: `${q * 100}%` }} />
+                <span className="needs-weight">
+                  {t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)} · {covered ? t('есть прибор', 'instrument on board') : t('нет прибора', 'no instrument')}
+                </span>
+                <span className="needs-bar" role="img" aria-label={t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)}>
+                  <i style={{ width: `${w * 100}%` }} />
                 </span>
               </li>
             );
@@ -486,12 +489,12 @@ function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; s
   const factors: { k: number; text: L; section: SectionId }[] = [
     {
       k: data,
-      text: { ru: `До Земли дойдёт только ${pct(data)}% данных: канал связи узкий.`, en: `Only ${pct(data)}% of the data will reach Earth: the link is too narrow.` },
+      text: { ru: 'Канал связи не успевает передать всё, что снимают приборы.', en: 'The radio link cannot carry everything the instruments record.' },
       section: 'comms',
     },
     {
       k: power,
-      text: { ru: `Энергии хватит приборам лишь на ${pct(power)}% времени.`, en: `Instruments get power only ${pct(power)}% of the time.` },
+      text: { ru: 'Энергии не хватает, чтобы приборы работали всё время.', en: 'There is not enough power to run the instruments all the time.' },
       section: 'power',
     },
     {
