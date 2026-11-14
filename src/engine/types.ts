@@ -75,6 +75,8 @@ export interface Part {
 }
 
 export interface Instrument extends Part {
+  /** Class: 1 entry-level, 2 standard, 3 professional. */
+  tier: Level;
   /** Raw data produced, GB per day. */
   data: number;
   /** Quality (0..1) for every measurement this instrument can make. */
