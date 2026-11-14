@@ -5,6 +5,7 @@ import type { Difficulty, Measure, Role, Scenario } from '../engine/types';
 import { useT } from '../i18n';
 import { useStore } from '../store';
 import { LangToggle, ROLES, Stars } from './common';
+import { AccountButton } from './Account';
 import { HeroScene } from './HeroScene';
 import { RealMissionHint } from './RealMission';
 import { TeamEntry } from './Team';
@@ -116,7 +117,10 @@ export function Home() {
             </button>
           ))}
         </nav>
-        <LangToggle />
+        <div className="mc-tools">
+          <AccountButton />
+          <LangToggle />
+        </div>
       </header>
 
       <main className="mc-grid">

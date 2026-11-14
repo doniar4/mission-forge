@@ -16,6 +16,7 @@ import {
   byId,
   pick,
 } from './catalog';
+import { devEventCount, devMods } from './development';
 import type {
   Check,
   Design,
@@ -59,11 +60,22 @@ const REDUNDANT_COST = 1.25;
 export const clamp = (x: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
+/**
+ * The catalogue parts of a design, as development left them: instruments that grew heavier,
+ * arrays that deliver less, a spacecraft that skipped a repeat test and fails more often.
+ */
 export function resolve(d: Design) {
+  const mods = devMods(d);
+  const pw = pick(POWER, d.power);
+  const test = byId(TESTING, d.testing) ?? TESTING[1];
   return {
+    mods,
     orbit: byId(ORBITS, d.orbit) ?? null,
-    insts: d.instruments.map((id) => byId(INSTRUMENTS, id)).filter((x): x is Instrument => !!x),
-    pw: pick(POWER, d.power),
+    insts: d.instruments
+      .map((id) => byId(INSTRUMENTS, id))
+      .filter((x): x is Instrument => !!x)
+      .map((i) => (mods.instMass[i.id] ? { ...i, mass: i.mass * (1 + mods.instMass[i.id]) } : i)),
+    pw: mods.power !== 1 && pw.solar ? { ...pw, watts: pw.watts * mods.power } : pw,
     bat: pick(BATTERIES, d.battery),
     ant: pick(ANTENNAS, d.comms),
     gr: pick(GROUNDS, d.ground),
@@ -72,7 +84,7 @@ export function resolve(d: Design) {
     prop: pick(PROPULSION, d.propulsion),
     st: pick(STRUCTURES, d.structure),
     veh: byId(VEHICLES, d.vehicle) ?? null,
-    test: byId(TESTING, d.testing) ?? TESTING[1],
+    test: mods.risk !== 1 ? { ...test, failFactor: test.failFactor * mods.risk } : test,
   };
 }
 export type Resolved = ReturnType<typeof resolve>;
@@ -179,6 +191,23 @@ export function launchPrice(veh: Vehicle, wetKg: number): number {
   return veh.cost + (veh.costPerKg ?? 0) * Math.max(0, wetKg - (veh.baseKg ?? 0));
 }
 
+/**
+ * The likely range of the science return. Development still ahead widens it (each undecided event
+ * may cost mass, power or money; new professional instruments are the least predictable); the
+ * chance of losing the launch or the spacecraft pulls the low end down. Rounded to 5%.
+ */
+export function forecastRange(d: Design, diff: Difficulty, projected: number, insts: Instrument[], reliability: number, failFactor: number): [number, number] {
+  const events = d.dev ? d.dev.choices.filter((c) => c === null).length : devEventCount(diff);
+  const pro = insts.filter((i) => i.tier === 3).length;
+  const dev = (events / Math.max(1, devEventCount(diff))) * (0.12 + 0.04 * pro) * Math.min(1, events);
+  const D = DIFFICULTY[diff];
+  const months = d.lifeYears * 12;
+  const failures = 0.004 * failFactor * (d.redundancy === 'redundant' ? 0.35 : 1) * D.events * months * 0.3;
+  const risk = Math.min(0.6, (D.launchFailures ? 1 - reliability : 0) + failures);
+  const r5 = (x: number) => Math.round(x * 20) / 20;
+  return [r5(Math.max(0, projected * (1 - dev - risk))), r5(projected * (1 + 0.5 * dev + 0.05))];
+}
+
 /** Tsiolkovsky's rocket equation, including the tanks that hold the propellant. */
 export function propellantFor(dryKg: number, dv: number, isp: number): number {
   if (dv <= 0 || isp <= 0) return 0;
@@ -237,7 +266,8 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
       (ant.devMonths ?? 0) +
       (prop.devMonths ?? 0) +
       (veh?.leadMonths ?? 0) +
-      (redundant ? 3 : 0),
+      (redundant ? 3 : 0) +
+      r.mods.months,
   );
   const transitMonths = o.transitMonths + (prop.lowThrust ? o.lowThrustMonths : 0);
   const decays = o.decayYears !== null && (!hasEngine || o.stationDv === 0);
@@ -256,12 +286,13 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
   // A bigger spacecraft needs a bigger team, and every month of development is a month of salaries.
   const devCost = devMonths * (0.12 + dry / 1000);
   const launchCost = veh ? launchPrice(veh, wet) : 0;
-  const total = payloadCost + busCost + launchCost + groundCost + opsCost + devCost + test.cost;
-  const budget = Math.round(sc.budget * DIFFICULTY[diff].budget);
+  const total = payloadCost + busCost + launchCost + groundCost + opsCost + devCost + test.cost + r.mods.cost;
+  const budget = Math.round(sc.budget * DIFFICULTY[diff].budget * r.mods.budget);
 
   // ---- Science ----------------------------------------------------------
   const target = sc.targetYears * 100 * TARGET_QUALITY;
   const projected = (p0.ratePerYear * p0.duty * p0.returnFraction * scienceYears(effectiveYears, sc.targetYears)) / target;
+  const range = forecastRange(d, diff, projected, insts, veh?.reliability ?? 1, test.failFactor);
 
   // ---- Review board -----------------------------------------------------
   if (!orbit)
@@ -425,7 +456,14 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
     },
     time: { devMonths, deadline: sc.deadlineMonths, transitMonths, lifeYears: d.lifeYears, effectiveYears },
     dv: { insertion: dvInsertion, station: dvStation, disposal: dvDisposal, total: dvTotal, disposalOk },
-    science: { quality: p0.quality, orbitFit: orbit ? p0.orbitFit : 0, ratePerYear: orbit ? p0.ratePerYear : 0, target, projected: orbit ? projected : 0 },
+    science: {
+      quality: p0.quality,
+      orbitFit: orbit ? p0.orbitFit : 0,
+      ratePerYear: orbit ? p0.ratePerYear : 0,
+      target,
+      projected: orbit ? projected : 0,
+      range: orbit ? range : [0, 0],
+    },
     launchReliability: veh?.reliability ?? 0,
     checks,
     blockers: checks.filter((c) => c.level === 'blocker').length,

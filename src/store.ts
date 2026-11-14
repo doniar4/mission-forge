@@ -2,13 +2,15 @@ import { setMuted } from './audio/sfx';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sanitize } from './engine/design';
+import { chooseDev, devDone, devStarted, makeDev } from './engine/development';
+import { evaluate } from './engine/evaluate';
 import { emptyDesign, scenarioById } from './engine/scenarios';
 import { simulate } from './engine/simulate';
 import type { TeamState } from './engine/team';
 import type { Choices, Design, Difficulty, L, SimResult } from './engine/types';
 
 export type Lang = 'ru' | 'en';
-export type Screen = 'home' | 'lobby' | 'studio' | 'flight' | 'report';
+export type Screen = 'home' | 'auth' | 'lobby' | 'studio' | 'dev' | 'flight' | 'report';
 
 export interface RecordEntry {
   id: string;
@@ -37,6 +39,7 @@ export interface TeamLocal {
 export interface TeamHooks {
   patch: (p: Partial<Design>) => void;
   toggle: (id: string) => void;
+  dev: (i: number, choice: string) => void;
   relaunch: () => void;
   back: () => void;
   leave: () => void;
@@ -68,6 +71,9 @@ interface Store {
   patch: (p: Partial<Design>) => void;
   toggleInstrument: (id: string) => void;
   resetDesign: () => void;
+  /** "To the pad": into development (events are drawn once), or straight to flight once development is done. */
+  develop: () => void;
+  devChoose: (i: number, choice: string) => void;
   launch: () => void;
   /** Take a decision in flight: the mission is re-flown with it from the same seed. */
   decide: (crisisId: string, option: string) => void;
@@ -121,12 +127,35 @@ export const useStore = create<Store>()(
         const { designs, scenarioId } = get();
         set({ designs: { ...designs, [scenarioId]: emptyDesign(scenarioById(scenarioId)) } });
       },
+      develop: () => {
+        const s = get();
+        if (s.team) return;
+        const d = currentDesign(s);
+        if (devDone(d)) return get().launch();
+        if (!devStarted(d)) {
+          const sc = scenarioById(s.scenarioId);
+          const seed = Math.floor(Math.random() * 2 ** 31);
+          set({ designs: { ...s.designs, [s.scenarioId]: { ...d, dev: makeDev(d, sc, s.difficulty, seed) } } });
+        }
+        set({ screen: 'dev' });
+      },
+      devChoose: (i, choice) => {
+        const s = get();
+        if (s.team) return hooks?.dev(i, choice);
+        const next = chooseDev(currentDesign(s), i, choice);
+        set({ designs: { ...s.designs, [s.scenarioId]: next } });
+      },
       launch: () => {
         const s = get();
         // In a team the host's referee picks the seed, so every screen replays the same flight.
         if (s.team) return hooks?.relaunch();
+        const d = currentDesign(s);
+        const sc = scenarioById(s.scenarioId);
+        // Every flight goes through development first, and nothing flies past the review board.
+        if (!devDone(d)) return get().develop();
+        if (evaluate(d, sc, s.difficulty).blockers > 0) return set({ screen: 'studio' });
         const seed = Math.floor(Math.random() * 2 ** 31);
-        set({ sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, seed), choices: {}, screen: 'flight' });
+        set({ sim: simulate(d, sc, s.difficulty, seed), choices: {}, screen: 'flight' });
       },
       decide: (crisisId, option) => {
         const s = get();
@@ -136,7 +165,10 @@ export const useStore = create<Store>()(
       },
       redesign: () => {
         if (get().team) return hooks?.back();
-        set({ screen: 'studio' });
+        // A new attempt is a new project: the next launch goes through a fresh development.
+        const { designs, scenarioId } = get();
+        const { dev: _old, ...design } = currentDesign(get());
+        set({ screen: 'studio', designs: { ...designs, [scenarioId]: design } });
       },
       goto: (screen) => {
         if (screen === 'home' && get().team) hooks?.leave();
@@ -177,7 +209,7 @@ export const useStore = create<Store>()(
         designs: s.designs,
         records: s.records,
         playerName: s.playerName,
-        screen: s.team || s.screen === 'home' ? 'home' : 'studio',
+        screen: s.team || s.screen === 'home' || s.screen === 'auth' ? 'home' : 'studio',
       }),
     },
   ),

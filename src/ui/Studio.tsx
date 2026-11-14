@@ -1,6 +1,7 @@
 import { play } from '../audio/sfx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
+import { devDone, devStarted } from '../engine/development';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
 import { goalsFor, memberName, rolesOf } from '../engine/team';
@@ -40,7 +41,7 @@ export function Studio() {
   const scenarioId = useStore((s) => s.scenarioId);
   const difficulty = useStore((s) => s.difficulty);
   const goto = useStore((s) => s.goto);
-  const launch = useStore((s) => s.launch);
+  const develop = useStore((s) => s.develop);
   const patch = useStore((s) => s.patch);
   const toggle = useStore((s) => s.toggleInstrument);
   const resetDesign = useStore((s) => s.resetDesign);
@@ -57,6 +58,20 @@ export function Studio() {
   const [jump, setJump] = useState(0);
   // Free look: the panels step aside and the spacecraft can be turned and zoomed at will.
   const [inspect, setInspect] = useState(false);
+  // The dock is as tall as its content; the side panels and the 3D framing read its height from
+  // --dock-h, so nothing ever slides under it whatever the screen size.
+  const hangarRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dock = dockRef.current;
+    const root = hangarRef.current;
+    if (!dock || !root || typeof ResizeObserver === 'undefined') return;
+    const set = () => root.style.setProperty('--dock-h', `${Math.ceil(dock.getBoundingClientRect().height)}px`);
+    const ro = new ResizeObserver(set);
+    ro.observe(dock);
+    set();
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     if (!inspect) return;
     const key = (e: KeyboardEvent) => e.key === 'Escape' && setInspect(false);
@@ -129,7 +144,7 @@ export function Studio() {
   const next = SECTIONS[index + 1];
 
   return (
-    <div className="hangar" data-section={section} data-inspect={inspect || undefined}>
+    <div ref={hangarRef} className="hangar" data-section={section} data-inspect={inspect || undefined}>
       <Craft3D
         design={shown}
         ev={shownEv}
@@ -285,10 +300,10 @@ export function Studio() {
                 disabled={ev.blockers > 0}
                 onClick={() => {
                   play('beep');
-                  launch();
+                  develop();
                 }}
               >
-                <span>{t('На старт', 'To the pad')}</span>
+                <span>{devDone(design) ? t('На старт', 'To the pad') : devStarted(design) ? t('К разработке', 'Back to development') : t('В разработку', 'Into development')}</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
@@ -296,18 +311,20 @@ export function Studio() {
               <p className="muted small-print">
                 {ev.blockers > 0
                   ? t(`Комиссия не допустит к запуску: обязательных замечаний ${ev.blockers}.`, `The board will not clear the launch: ${ev.blockers} required findings.`)
-                  : ev.checks.length > 0
-                    ? t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but they will show up in space.')
-                    : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
+                  : !devDone(design)
+                    ? t('Перед запуском — разработка: несколько событий, которые изменят проект.', 'Before launch comes development: a few events that will change the design.')
+                    : ev.checks.length > 0
+                      ? t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but they will show up in space.')
+                      : t('Замечаний нет. Проект готов к запуску.', 'No findings. The design is ready to fly.')}
               </p>
             </div>
           )}
         </div>
       </aside>
 
-      <section className="dock glass" aria-labelledby="dock-title">
+      <section ref={dockRef} className="dock glass" aria-labelledby="dock-title">
         <div className="dock-head">
-          <div className="dock-title">
+          <div className="dock-title" title={t(LESSONS[section])}>
             <span className="dock-no">{String(index + 1).padStart(2, '0')}</span>
             <div>
               <span className="role-pill" data-role={current.role}>
@@ -448,7 +465,12 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
   return (
     <div className="coach glass" data-state={next ? 'todo' : risks ? 'risk' : 'ready'} role="status">
       <span className="eyebrow">
-        {next ? t(`Следующий шаг · осталось ${required.length}`, `Next step · ${required.length} to go`) : t('Допуск к запуску', 'Cleared for launch')}
+        {next ? t('Следующий шаг', 'Next step') : t('Допуск к запуску', 'Cleared for launch')}
+        {next && required.length > 1 && (
+          <span className="coach-count" aria-label={t(`всего осталось ${required.length}`, `${required.length} left in all`)}>
+            {required.length}
+          </span>
+        )}
       </span>
       <b>
         {next
@@ -519,9 +541,10 @@ function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; s
   return worst.k < 0.999 ? { text: worst.text, section: worst.section } : null;
 }
 
-function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
+export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
-  const weak = weakestLink(ev, design, sc);
+  // While the board still has required findings, the coach already says what to do next.
+  const weak = ev.blockers > 0 ? null : weakestLink(ev, design, sc);
   return (
     <div className="budgets">
       {weak && (
