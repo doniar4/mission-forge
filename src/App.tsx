@@ -18,7 +18,7 @@ export function App() {
   }, [lang]);
   // The design room is daylight; flight happens in the dark.
   useEffect(() => {
-    document.documentElement.dataset.mode = screen === 'flight' ? 'space' : 'paper';
+    document.documentElement.dataset.mode = 'space';
     window.scrollTo(0, 0);
   }, [screen]);
   // Flight and report need a flown mission; without one, go back to the drawing board.

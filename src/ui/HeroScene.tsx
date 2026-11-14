@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import type { HeroStage } from '../three/HeroStage';
 
-/** The rocket on the home page. Decoration: without WebGL the page simply goes without it. */
+/** The rocket at dusk behind the home page's headline. Decoration: without WebGL a gradient stands in. */
 export function HeroScene() {
   const t = useT();
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -29,13 +29,9 @@ export function HeroScene() {
     };
   }, []);
 
-  if (state === 'failed') return null;
   return (
-    <figure className="hero-scene" data-state={state}>
-      <div className="hero-view">
-        <canvas ref={canvas} role="img" aria-label={t('Ракета «Атлант» на стартовом столе', 'The Atlant rocket on its launch pad')} />
-      </div>
-      <figcaption>{t('«Атлант», средняя ракета: 8 тонн на низкую орбиту', 'Atlant, medium launcher: 8 tonnes to low orbit')}</figcaption>
-    </figure>
+    <div className="hero-bg" data-state={state} aria-hidden={state !== 'ready'}>
+      {state !== 'failed' && <canvas ref={canvas} role="img" aria-label={t('Ракета «Атлант» на стартовом столе в сумерках', 'The Atlant rocket on its launch pad at dusk')} />}
+    </div>
   );
 }

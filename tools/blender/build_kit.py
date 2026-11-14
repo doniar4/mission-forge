@@ -239,6 +239,151 @@ def build(scene):
     p.cyl(0.045, 0.045, 0.012, loc=(0, 0, 1.3), m='black', seg=16)
     done(p)
 
+    # ---- entry and professional classes of the instruments ------------------
+    # Class 1 is small and simple, class 3 carries what makes it better: coolers, radiators,
+    # longer booms, bigger optics.
+    p = Part('inst_cam_mid')
+    p.box((0.22, 0.22, 0.14), loc=(0, 0, 0.07), m='gold', bevel=0.01)
+    p.cyl(0.13, 0.13, 0.42, loc=(0, 0, 0.14), m='white', seg=20)
+    p.cyl(0.14, 0.14, 0.05, loc=(0, 0, 0.56), m='dark', seg=20)
+    p.cyl(0.11, 0.11, 0.008, loc=(0, 0, 0.61), m='lens', seg=20)
+    done(p)
+
+    p = Part('inst_thermal_micro')
+    p.box((0.12, 0.1, 0.08), loc=(0, 0, 0.04), m='dark', bevel=0.006)
+    p.cyl(0.035, 0.035, 0.03, loc=(0, 0, 0.08), m='black', seg=14)
+    p.cyl(0.028, 0.028, 0.004, loc=(0, 0, 0.11), m='lens', seg=14)
+    done(p)
+
+    p = Part('inst_thermal_cryo')
+    p.box((0.42, 0.36, 0.4), loc=(0, 0, 0.2), m='gold', bevel=0.014)
+    p.box((0.24, 0.18, 0.12), loc=(0, 0, 0.46), m='dark')
+    p.box((0.18, 0.12, 0.008), loc=(0, 0, 0.524), m='lens')
+    p.cyl(0.07, 0.07, 0.3, loc=(-0.21, 0.12, 0.2), rot=(0, pi / 2, 0), m='alu', seg=16)  # cryocooler
+    for k in range(5):
+        p.cyl(0.085, 0.085, 0.01, loc=(-0.24 - k * 0.04, 0.12, 0.2), rot=(0, pi / 2, 0), m='alu', seg=16)
+    p.box((0.02, 0.6, 0.5), loc=(0.33, 0, 0.3), rot=(0, -0.3, 0), m='radiator')
+    p.strut((0.21, 0, 0.12), (0.3, 0, 0.16), 0.014)
+    p.strut((0.21, 0, 0.32), (0.3, 0, 0.36), 0.014)
+    done(p)
+
+    p = Part('inst_multispec_lite')
+    p.box((0.2, 0.18, 0.12), loc=(0, 0, 0.06), m='white', bevel=0.008)
+    for x in (-0.045, 0.045):
+        for y in (-0.04, 0.04):
+            p.cyl(0.03, 0.03, 0.04, loc=(x, y, 0.12), m='dark', seg=14)
+            p.cyl(0.024, 0.024, 0.004, loc=(x, y, 0.16), m='lens', seg=14)
+    done(p)
+
+    p = Part('inst_hyperspec')
+    p.box((0.56, 0.42, 0.32), loc=(0, 0, 0.16), m='white', bevel=0.014)
+    p.box((0.4, 0.3, 0.06), loc=(0, 0, 0.35), m='gold')
+    p.cyl(0.14, 0.24, 0.24, loc=(0, 0, 0.38), rot=(0, 0, pi / 4), m='dark', seg=4)
+    p.box((0.3, 0.05, 0.008), loc=(0, 0, 0.625), m='lens')
+    p.box((0.02, 0.46, 0.4), loc=(0.34, 0, 0.22), rot=(0, -0.2, 0), m='radiator')
+    done(p)
+
+    p = Part('inst_scatterometer')
+    p.cyl(0.1, 0.12, 0.08, m='alu', seg=16)
+    p.cyl(0.04, 0.04, 0.16, loc=(0, 0, 0.08), m='dark', seg=12)
+    p.box((0.9, 0.09, 0.05), loc=(0, 0, 0.27), rot=(0, 0.35, 0), m='white')
+    p.box((0.86, 0.06, 0.012), loc=(0.01, 0, 0.298), rot=(0, 0.35, 0), m='dark')
+    done(p)
+
+    p = Part('inst_sar_compact')
+    p.box((0.24, 0.24, 0.08), loc=(0, 0, 0.04), m='alu')
+    p.box((2.0, 0.6, 0.04), loc=(0, 0, 0.24), m='alu')
+    for i in range(4):
+        p.box((0.44, 0.52, 0.01), loc=(-0.72 + i * 0.48, 0, 0.265), m='white')
+    for sx in (-1, 1):
+        p.strut((sx * 0.08, 0, 0.08), (sx * 0.8, 0, 0.22), 0.016)
+    done(p)
+
+    p = Part('inst_alt_lidar')
+    p.box((0.16, 0.14, 0.1), loc=(0, 0, 0.05), m='gold', bevel=0.006)
+    p.cyl(0.06, 0.06, 0.18, loc=(0, 0, 0.1), m='white', seg=16)
+    p.cyl(0.05, 0.05, 0.004, loc=(0, 0, 0.28), m='lens', seg=16)
+    p.cyl(0.012, 0.012, 0.06, loc=(0.09, 0, 0.1), m='orange', seg=8)  # laser head
+    done(p)
+
+    p = Part('inst_alt_pro')
+    p.cyl(0.12, 0.1, 0.1, m='alu', seg=14)
+    dish(p, 0.5, 0.45, z0=0.11)
+    for i in range(3):
+        a = i * tau / 3
+        p.strut((0.47 * cos(a), 0.47 * sin(a), 0.2), (0.03 * cos(a), 0.03 * sin(a), 0.43), 0.008, seg=6)
+    p.cyl(0.045, 0.03, 0.06, loc=(0, 0, 0.4), m='alu', seg=10)
+    p.box((0.2, 0.2, 0.18), loc=(0.55, 0.25, 0.09), m='gold', bevel=0.01)  # radiometer
+    p.cyl(0.07, 0.05, 0.16, loc=(0.55, 0.25, 0.18), m='white', seg=14)
+    done(p)
+
+    p = Part('inst_sounder_lite')
+    p.box((0.18, 0.16, 0.12), loc=(0, 0, 0.06), m='white', bevel=0.008)
+    p.cyl(0.05, 0.05, 0.16, loc=(-0.08, 0, 0.15), rot=(0, pi / 2, 0), m='gold', seg=14)
+    done(p)
+
+    p = Part('inst_sounder_pro')
+    p.box((0.62, 0.46, 0.38), loc=(0, 0, 0.19), m='white', bevel=0.016)
+    p.cyl(0.14, 0.14, 0.46, loc=(-0.23, 0, 0.46), rot=(0, pi / 2, 0), m='gold', seg=20)
+    p.box((0.3, 0.12, 0.02), loc=(0.05, 0, 0.6), m='lens')
+    p.box((0.03, 0.4, 0.36), loc=(0.29, 0, 0.44), m='alu')
+    p.box((0.02, 0.5, 0.42), loc=(0.38, 0, 0.26), rot=(0, -0.2, 0), m='radiator')
+    done(p)
+
+    p = Part('inst_gamma_suite')  # gamma-ray head on a 1.4 m boom
+    p.box((0.24, 0.2, 0.16), loc=(0, 0, 0.08), m='gold', bevel=0.01)
+    p.cyl(0.07, 0.07, 0.12, loc=(0.08, 0, 0.16), m='dark', seg=14)
+    p.strut((0, 0, 0.16), (0, 0, 1.3), 0.018, seg=6)
+    p.cyl(0.09, 0.09, 0.22, loc=(0, 0, 1.28), m='gold', seg=16)
+    p.cyl(0.095, 0.095, 0.02, loc=(0, 0, 1.5), m='alu', seg=16)
+    done(p)
+
+    p = Part('inst_mag_chip')
+    p.box((0.1, 0.07, 0.01), loc=(0, 0, 0.005), m='teal')
+    p.box((0.03, 0.03, 0.012), loc=(0.01, 0, 0.016), m='black')
+    for i in range(4):
+        p.box((0.006, 0.02, 0.004), loc=(-0.035 + i * 0.008, -0.02, 0.012), m='gold')
+    done(p)
+
+    p = Part('inst_mag_pro')  # two sensors on a long boom
+    p.cyl(0.05, 0.05, 0.08, m='alu', seg=10)
+    for k in range(3):
+        p.strut((0, 0, 0.08 + k * 1.0), (0, 0, 1.06 + k * 1.0), 0.02 - k * 0.003, seg=6)
+        p.cyl(0.035, 0.035, 0.05, loc=(0, 0, 1.04 + k * 1.0), m='dark', seg=8)
+    p.box((0.1, 0.1, 0.14), loc=(0, 0, 2.1), m='gold', bevel=0.01)
+    p.box((0.12, 0.12, 0.16), loc=(0, 0, 3.12), m='gold', bevel=0.01)
+    done(p)
+
+    p = Part('inst_particles_lite')
+    p.box((0.12, 0.1, 0.08), loc=(0, 0, 0.04), m='white', bevel=0.006)
+    cone_to(p, (0, 0, 0.08), (0, 0, 0.16), 0.018, 0.034, 'dark')
+    done(p)
+
+    p = Part('inst_plasma_suite')
+    p.box((0.4, 0.32, 0.22), loc=(0, 0, 0.11), m='white', bevel=0.012)
+    p.cyl(0.1, 0.1, 0.06, loc=(-0.08, 0, 0.22), m='alu', seg=18)
+    p.sphere(0.1, loc=(-0.08, 0, 0.28), m='gold', seg=16, scale=(1, 1, 0.55))  # top-hat analyser
+    p.cyl(0.05, 0.05, 0.22, loc=(0.12, 0.06, 0.22), m='dark', seg=12)  # mass spectrometer
+    for a in (-0.7, 0.0, 0.7):
+        base = (0.12 + 0.05 * sin(a), -0.08, 0.22 + 0.05 * cos(a))
+        tip = (0.12 + 0.15 * sin(a), -0.08, 0.22 + 0.15 * cos(a))
+        cone_to(p, base, tip, 0.02, 0.04, 'dark')
+    done(p)
+
+    p = Part('inst_solar_xray')
+    p.box((0.14, 0.12, 0.08), loc=(0, 0, 0.04), m='alu', bevel=0.006)
+    p.cyl(0.035, 0.035, 0.12, loc=(0, 0, 0.08), m='gold', seg=14)
+    p.cyl(0.03, 0.03, 0.004, loc=(0, 0, 0.2), m='black', seg=14)
+    done(p)
+
+    p = Part('inst_euv_imager')
+    p.box((0.2, 0.2, 0.1), loc=(0, 0, 0.05), m='alu')
+    p.cyl(0.1, 0.1, 0.6, loc=(0, 0, 0.1), m='white', seg=20)
+    p.cyl(0.11, 0.11, 0.04, loc=(0, 0, 0.7), m='dark', seg=20)
+    p.cyl(0.085, 0.085, 0.006, loc=(0, 0, 0.74), m='lens', seg=20)
+    p.box((0.02, 0.24, 0.3), loc=(0.14, 0, 0.3), m='radiator')
+    done(p)
+
     # ---- propulsion (exhaust leaves along +Z) ------------------------------
     p = Part('eng_coldgas')
     p.cyl(0.13, 0.13, 0.02, m='alu', seg=16)

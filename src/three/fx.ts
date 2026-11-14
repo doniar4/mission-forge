@@ -192,8 +192,8 @@ export class Puffs {
 }
 
 /** The daytime sky around the launch site; it thins out to black as the rocket climbs. */
-export function makeSky(): { mesh: THREE.Mesh; set(sun: THREE.Vector3, density: number): void } {
-  const uniforms = { uSun: { value: new THREE.Vector3(0, 1, 0) }, uDensity: { value: 1 } };
+export function makeSky(): { mesh: THREE.Mesh; set(sun: THREE.Vector3, density: number, dusk?: number): void } {
+  const uniforms = { uSun: { value: new THREE.Vector3(0, 1, 0) }, uDensity: { value: 1 }, uDusk: { value: 0 } };
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(60_000, 32, 20),
     new THREE.ShaderMaterial({
@@ -212,12 +212,14 @@ export function makeSky(): { mesh: THREE.Mesh; set(sun: THREE.Vector3, density: 
       fragmentShader: /* glsl */ `
         uniform vec3 uSun;
         uniform float uDensity;
+        uniform float uDusk;
         varying vec3 vDir;
         void main() {
           vec3 d = normalize(vDir);
           float h = max(d.y, 0.0);
-          vec3 zenith = vec3(0.06, 0.2, 0.55);
-          vec3 horizon = vec3(0.6, 0.73, 0.88);
+          // Dusk swaps the daytime blues for a deep night zenith over a burning horizon.
+          vec3 zenith = mix(vec3(0.06, 0.2, 0.55), vec3(0.012, 0.02, 0.07), uDusk);
+          vec3 horizon = mix(vec3(0.6, 0.73, 0.88), mix(vec3(0.95, 0.42, 0.16), vec3(0.35, 0.22, 0.45), smoothstep(0.0, 0.25, h)), uDusk);
           vec3 col = mix(horizon, zenith, pow(h, 0.42));
           // High up the pale haze is below you: what is left of the sky is a deep blue.
           col = mix(vec3(0.03, 0.1, 0.36), col, smoothstep(0.0, 0.7, uDensity));
@@ -235,9 +237,10 @@ export function makeSky(): { mesh: THREE.Mesh; set(sun: THREE.Vector3, density: 
   mesh.frustumCulled = false;
   return {
     mesh,
-    set(sun, density) {
+    set(sun, density, dusk = 0) {
       uniforms.uSun.value.copy(sun);
       uniforms.uDensity.value = density;
+      uniforms.uDusk.value = dusk;
     },
   };
 }
