@@ -5,7 +5,7 @@ import { sanitize } from './engine/design';
 import { emptyDesign, scenarioById } from './engine/scenarios';
 import { simulate } from './engine/simulate';
 import type { TeamState } from './engine/team';
-import type { Design, Difficulty, L, SimResult } from './engine/types';
+import type { Choices, Design, Difficulty, L, SimResult } from './engine/types';
 
 export type Lang = 'ru' | 'en';
 export type Screen = 'home' | 'lobby' | 'studio' | 'flight' | 'report';
@@ -53,6 +53,8 @@ interface Store {
   difficulty: Difficulty;
   designs: Record<string, Design>;
   sim: SimResult | null;
+  /** Decisions taken in the current flight, by crisis id. */
+  choices: Choices;
   records: RecordEntry[];
   playerName: string;
   team: TeamLocal | null;
@@ -67,6 +69,8 @@ interface Store {
   toggleInstrument: (id: string) => void;
   resetDesign: () => void;
   launch: () => void;
+  /** Take a decision in flight: the mission is re-flown with it from the same seed. */
+  decide: (crisisId: string, option: string) => void;
   redesign: () => void;
   goto: (s: Screen) => void;
   saveRecord: (r: Omit<RecordEntry, 'id' | 'date'>) => void;
@@ -83,6 +87,7 @@ export const useStore = create<Store>()(
       difficulty: 'engineer',
       designs: {},
       sim: null,
+      choices: {},
       records: [],
       playerName: '',
       team: null,
@@ -121,7 +126,13 @@ export const useStore = create<Store>()(
         // In a team the host's referee picks the seed, so every screen replays the same flight.
         if (s.team) return hooks?.relaunch();
         const seed = Math.floor(Math.random() * 2 ** 31);
-        set({ sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, seed), screen: 'flight' });
+        set({ sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, seed), choices: {}, screen: 'flight' });
+      },
+      decide: (crisisId, option) => {
+        const s = get();
+        if (!s.sim || s.team) return;
+        const choices = { ...s.choices, [crisisId]: option };
+        set({ choices, sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, s.sim.seed, choices) });
       },
       redesign: () => {
         if (get().team) return hooks?.back();

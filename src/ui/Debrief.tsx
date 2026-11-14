@@ -9,7 +9,9 @@ import { useDesign, useStore } from '../store';
 import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
 import { Craft3D } from './Craft3D';
+import { CRISIS_TITLE } from './CrisisCard';
 import { RealMissionCompare } from './RealMission';
+import { CRISIS_OPTIONS } from '../engine/simulate';
 
 export function Debrief() {
   const t = useT();
@@ -94,6 +96,31 @@ export function Debrief() {
               </li>
             ))}
           </ul>
+          {sim.crises.length > 0 && (
+            <>
+              <h3 className="decisions-title">{t('Решения в полёте', 'Decisions in flight')}</h3>
+              <ul className="decisions">
+                {sim.crises.map((c) => {
+                  // What came of it: the log entry the decision wrote that month.
+                  const outcome = sim.events.find((e) => e.month === c.month && e.title.en.startsWith('Decision'));
+                  const bold = CRISIS_OPTIONS[c.kind].indexOf(c.chosen) > 0;
+                  return (
+                    <li key={c.id} data-tone={bold ? 'bold' : 'safe'}>
+                      <b>
+                        {t(CRISIS_TITLE(c))}, {t(`месяц ${c.month}`, `month ${c.month}`)}
+                        {c.defaulted && <span className="muted"> · {t('решено по умолчанию', 'default taken')}</span>}
+                      </b>
+                      {outcome && (
+                        <span>
+                          {t(outcome.title)}. {t(outcome.text)}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </section>
 
         <div>
