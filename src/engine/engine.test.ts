@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, propellantFor } from './evaluate';
+import { sanitize } from './design';
+import { OVERLAP, evaluate, propellantFor } from './evaluate';
 import { buildReport } from './report';
 import { emptyDesign, scenarioById } from './scenarios';
 import { simulate } from './simulate';
@@ -16,12 +17,12 @@ const LADDER: Record<string, Record<Rung, Partial<Design>>> = {
   firewatch: {
     entry: { orbit: 'sso', instruments: ['thermal_micro', 'multispec_lite', 'cam_wide'], power: 'small', battery: 'b100', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'magnetic', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 3 },
     std: { orbit: 'sso', instruments: ['thermal_ir', 'multispec'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 3 },
-    pro: { orbit: 'sso', instruments: ['thermal_cryo', 'multispec_lite', 'cam_wide'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'network', computer: 'standard', adcs: 'precise', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 3, testing: 'minimal' },
+    pro: { orbit: 'sso', instruments: ['thermal_cryo', 'multispec'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'own', computer: 'standard', adcs: 'precise', propulsion: 'mono', vehicle: 'kolibri', lifeYears: 3 },
   },
   ocean: {
     entry: { orbit: 'sso', instruments: ['alt_lidar', 'sounder_lite', 'scatterometer'], power: 'small', battery: 'b100', comms: 'sband', ground: 'network', computer: 'basic', adcs: 'wheels', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 7 },
     std: { orbit: 'sso', instruments: ['altimeter', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'kolibri', lifeYears: 7, redundancy: 'redundant' },
-    pro: { orbit: 'sso', instruments: ['alt_pro', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'vector', lifeYears: 7 },
+    pro: { orbit: 'sso', instruments: ['alt_pro', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'vector', lifeYears: 7, redundancy: 'redundant' },
   },
   lunarice: {
     entry: { orbit: 'llo', instruments: ['neutron', 'alt_lidar', 'cam_wide'], power: 'small', battery: 'b500', comms: 'sband', ground: 'dsn', computer: 'standard', adcs: 'wheels', propulsion: 'biprop', vehicle: 'vector', lifeYears: 2 },
@@ -109,14 +110,30 @@ describe('reference designs', () => {
       expect(r.points).toBeLessThan(std.points);
     });
 
-    it(`${id}: the professional design returns more science for more money`, () => {
-      const r = fly(id, 'pro', 'cadet');
-      const std = fly(id, 'std', 'cadet');
+    it(`${id}: the professional design returns more science for more money, and still fits`, () => {
+      const r = fly(id, 'pro', 'engineer');
+      const std = fly(id, 'std', 'engineer');
       expect(r.blockers).toEqual([]);
       expect(r.ev.science.projected).toBeGreaterThan(std.ev.science.projected + 0.05);
       expect(r.ev.cost.total).toBeGreaterThan(std.ev.cost.total);
       expect(r.ev.cost.payload).toBeGreaterThan(std.ev.cost.payload);
       expect(r.wins).toBeGreaterThan(0.6);
+      // A different strategy, not a better one: within 10% of the standard design's score.
+      expect(Math.abs(r.points - std.points) / std.points).toBeLessThan(0.1);
+    });
+
+    it(`${id}: every reference design is one a player could actually build`, () => {
+      const sc = scenarioById(id);
+      for (const rung of ['entry', 'std', 'pro'] as Rung[]) expect(sanitize(design(id, rung), sc, 'engineer'), rung).toEqual(design(id, rung));
+    });
+
+    it(`${id}: the standard instruments can fly on every difficulty`, () => {
+      const sc = scenarioById(id);
+      for (const diff of ['cadet', 'engineer', 'director'] as const) {
+        const d = sanitize(design(id), sc, diff);
+        const blockers = evaluate(d, sc, diff).checks.filter((c) => c.level === 'blocker').map((c) => c.id);
+        expect(blockers, diff).toEqual([]);
+      }
     });
   }
 });
@@ -156,6 +173,20 @@ describe('instrument classes', () => {
     const on = evaluate({ ...design('sentinel'), lifeYears: 5 }, sc, 'engineer').science.projected;
     const longer = evaluate({ ...design('sentinel'), lifeYears: 7 }, sc, 'engineer').science.projected;
     expect(longer / on).toBeCloseTo(1.2, 1);
+    // The extension earns science for at most half the target years again.
+    const capped = evaluate({ ...design('sentinel'), lifeYears: 8 }, sc, 'engineer').science.projected;
+    const longest = evaluate({ ...design('sentinel'), lifeYears: 10 }, sc, 'engineer').science.projected;
+    expect(longest).toBeCloseTo(capped, 5);
+    expect(longest / on).toBeCloseTo(1.25, 2);
+  });
+
+  it('a cheap duplicate adds little to a measurement a better instrument already covers', () => {
+    const sc = scenarioById('firewatch');
+    const q = (ids: string[]) => evaluate({ ...design('firewatch'), adcs: 'precise', instruments: ids }, sc, 'engineer').science.quality.thermal ?? 0;
+    const alone = q(['thermal_ir']);
+    const both = q(['thermal_ir', 'thermal_micro']);
+    expect(both - alone).toBeCloseTo(OVERLAP * 0.4 * (1 - alone), 5);
+    expect(both).toBeLessThan(q(['thermal_cryo']));
   });
 
   it('shows the data the payload makes even when it is starved of power', () => {

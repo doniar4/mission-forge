@@ -45,6 +45,13 @@ const TARGET_QUALITY = 0.65;
  * replace better instruments.
  */
 export const EXTENDED_VALUE = 0.5;
+/** An extended mission earns science for at most half the target years again. */
+export const EXTENDED_LIMIT = 0.5;
+
+/** Science-weighted years: full value up to the target, half value for a limited extension. */
+export function scienceYears(years: number, targetYears: number): number {
+  return Math.min(years, targetYears) + EXTENDED_VALUE * clamp(years - targetYears, 0, EXTENDED_LIMIT * targetYears);
+}
 const REDUNDANT_MASS = 1.15;
 const REDUNDANT_COST = 1.25;
 
@@ -70,21 +77,30 @@ export function resolve(d: Design) {
 export type Resolved = ReturnType<typeof resolve>;
 export type Flying = Resolved & { orbit: Orbit };
 
-/** Science quality per measurement. Two instruments measuring the same thing give diminishing returns. */
+/**
+ * Share of its own quality that a second instrument adds to a measurement already covered: it
+ * mostly sees what the first one sees, so a cheap duplicate cannot replace a better instrument.
+ */
+export const OVERLAP = 0.3;
+
+/** Science quality per measurement: the best instrument counts in full, the others only partly. */
 export function scienceQuality(insts: Instrument[], pointing: number, sc: Scenario) {
   const quality: Partial<Record<Measure, number>> = {};
   let total = 0;
   for (const [m, w] of Object.entries(sc.weights) as [Measure, number][]) {
     let miss = 1;
+    let best = 0;
     for (const i of insts) {
       const q = i.measures[m];
       if (!q) continue;
       // An instrument that cannot be held steady still works, just blurrier.
       const steadiness = pointing >= i.pointing ? 1 : Math.pow(0.45, i.pointing - pointing);
       miss *= 1 - q * steadiness;
+      best = Math.max(best, q * steadiness);
     }
-    quality[m] = 1 - miss;
-    total += w * (1 - miss);
+    const q = best + OVERLAP * (1 - miss - best);
+    quality[m] = q;
+    total += w * q;
   }
   return { quality, total };
 }
@@ -239,8 +255,7 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
 
   // ---- Science ----------------------------------------------------------
   const target = sc.targetYears * 100 * TARGET_QUALITY;
-  const scienceYears = Math.min(effectiveYears, sc.targetYears) + EXTENDED_VALUE * Math.max(0, effectiveYears - sc.targetYears);
-  const projected = (p0.ratePerYear * p0.duty * p0.returnFraction * scienceYears) / target;
+  const projected = (p0.ratePerYear * p0.duty * p0.returnFraction * scienceYears(effectiveYears, sc.targetYears)) / target;
 
   // ---- Review board -----------------------------------------------------
   if (!orbit)

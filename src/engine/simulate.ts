@@ -1,5 +1,5 @@
 import { DIFFICULTY } from './catalog';
-import { EXTENDED_VALUE, evaluate, performance, resolve, type FlightState, type Flying } from './evaluate';
+import { scienceYears, evaluate, performance, resolve, type FlightState, type Flying } from './evaluate';
 import type { Design, Difficulty, L, MonthRecord, Scenario, SimEvent, SimResult } from './types';
 
 /** Small deterministic random generator: the same seed always replays the same mission. */
@@ -231,7 +231,9 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
     const days = 30.4;
     dataGenerated += p.generated * days * live;
     dataReturned += p.generated * p.returnFraction * days * live;
-    science += (p.ratePerYear / 12) * p.duty * p.returnFraction * live * (m > sc.targetYears * 12 ? EXTENDED_VALUE : 1);
+    // Each month is worth what it adds to the science-weighted years (less once past the target).
+    const worth = 12 * (scienceYears(m / 12, sc.targetYears) - scienceYears((m - 1) / 12, sc.targetYears));
+    science += (p.ratePerYear / 12) * p.duty * p.returnFraction * live * worth;
     monthsOperated = m;
     months.push({ t, phase: 'ops', power: live * p.instFrac, data: live * p.returnFraction, science: science / target });
   }
