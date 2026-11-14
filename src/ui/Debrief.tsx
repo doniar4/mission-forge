@@ -10,6 +10,8 @@ import { useDesign, useStore } from '../store';
 import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
 import { Craft3D } from './Craft3D';
+import { CRISIS_OPTIONS } from '../engine/simulate';
+import { CRISIS_TITLE } from './CrisisCard';
 import { RealMissionCompare } from './RealMission';
 
 const still = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -251,9 +253,40 @@ export function Debrief() {
                   <p>{t(x.text)}</p>
                 </div>
               </Reveal>
+
             ))}
           </ol>
         </Reveal>
+
+        {/* ---- decisions in flight ---- */}
+        {sim.crises.length > 0 && (
+          <Reveal className="report-section">
+            <div className="report-head">
+              <span className="report-no">{next()}</span>
+              <h2>{t('Решения в полёте', 'Decisions in flight')}</h2>
+            </div>
+            <ul className="decisions">
+              {sim.crises.map((c) => {
+                // What came of it: the log entry the decision wrote that month.
+                const outcome = sim.events.find((e) => e.month === c.month && e.title.en.startsWith('Decision'));
+                const bold = CRISIS_OPTIONS[c.kind].indexOf(c.chosen) > 0;
+                return (
+                  <li key={c.id} data-tone={bold ? 'bold' : 'safe'}>
+                    <b>
+                      {t(CRISIS_TITLE(c))}, {t(`месяц ${c.month}`, `month ${c.month}`)}
+                      {c.defaulted && <span className="muted"> · {t('решено по умолчанию', 'default taken')}</span>}
+                    </b>
+                    {outcome && (
+                      <span>
+                        {t(outcome.title)}. {t(outcome.text)}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Reveal>
+        )}
 
         {/* ---- science over time ---- */}
         {!sim.launchFailed && (

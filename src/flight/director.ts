@@ -3,7 +3,8 @@ import type { Ascent, AscentEvent } from '../engine/ascent';
 /*
  * The flight's running order: what is on screen and when. It knows nothing about
  * drawing — the 3D scene and the telemetry panel both read it — and nothing in it
- * changes the mission's result, which simulate() has already decided.
+ * changes the mission's result, which simulate() decides. It can stop at a month and
+ * wait (`holdAt`): that is where the team takes a decision and the flight is re-simulated.
  */
 
 export type FlightPhase = 'pad' | 'countdown' | 'ascent' | 'deploy' | 'cruise' | 'insertion' | 'ops' | 'done';
@@ -54,6 +55,10 @@ export class Director {
   event: AscentEvent | null = null;
   private nextEvent = 0;
   private listeners = new Set<() => void>();
+  /** A month the reveal must not pass until `release()`: a decision is waiting there. */
+  private hold: number | null = null;
+  /** True while the flight stands still at a hold. */
+  waiting = false;
 
   constructor(readonly plan: FlightPlan) {}
 
@@ -100,7 +105,20 @@ export class Director {
     if (this.plan.launchFailed || !this.plan.ascent.reached) this.enter('ascent');
     else this.enter('deploy');
   }
+  /** Stop revealing months once `months` reaches this, and wait. */
+  holdAt(month: number | null) {
+    this.hold = month;
+  }
+  /** Carry on after a decision; `totalMonths` may have changed with it. */
+  release(totalMonths: number) {
+    this.plan.totalMonths = totalMonths;
+    this.hold = null;
+    this.waiting = false;
+    this.emit();
+  }
   skip() {
+    this.hold = null;
+    this.waiting = false;
     this.months = this.plan.totalMonths;
     this.met = this.ascentEnd;
     this.event = this.plan.ascent.events[this.plan.ascent.events.length - 1] ?? null;
@@ -108,7 +126,7 @@ export class Director {
   }
 
   update(dt: number) {
-    if (this.speed === 0 || this.phase === 'pad' || this.phase === 'done') return;
+    if (this.speed === 0 || this.waiting || this.phase === 'pad' || this.phase === 'done') return;
     const step = Math.min(dt, 0.1) * this.speed;
     this.t += step;
     const { plan } = this;
@@ -154,12 +172,18 @@ export class Director {
         if (this.t >= INSERTION) this.enter('ops');
         break;
       case 'ops': {
-        const m = Math.min(plan.totalMonths, plan.transitMonths + Math.floor(this.t / OPS_MONTH));
-        if (m !== this.months) {
+        let m = Math.min(plan.totalMonths, plan.transitMonths + Math.floor(this.t / OPS_MONTH));
+        if (this.hold !== null && m >= this.hold) {
+          // Stand still on the month before the decision.
+          m = this.hold;
+          this.t = (this.hold - plan.transitMonths) * OPS_MONTH;
+          this.waiting = true;
+        }
+        if (m !== this.months || this.waiting) {
           this.months = m;
           this.emit();
         }
-        if (this.months >= plan.totalMonths && this.t >= (plan.totalMonths - plan.transitMonths) * OPS_MONTH + 1.2) this.enter('done');
+        if (!this.waiting && this.months >= plan.totalMonths && this.t >= (plan.totalMonths - plan.transitMonths) * OPS_MONTH + 1.2) this.enter('done');
         break;
       }
     }

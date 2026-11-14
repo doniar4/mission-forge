@@ -400,13 +400,16 @@ function Brief({ sc, ev }: { sc: Scenario; ev: Evaluation }) {
         <h3>{t('Что нужно измерить', 'What has to be measured')}</h3>
         <ul className="needs">
           {weights.map(([m, w]) => {
-            const q = ev.science.quality[m] ?? 0;
+            // Only whether something on board measures it — how well is found out in flight.
+            const covered = (ev.science.quality[m] ?? 0) > 0;
             return (
-              <li key={m}>
+              <li key={m} data-covered={covered || undefined}>
                 <span className="needs-name">{t(MEASURES[m])}</span>
-                <span className="needs-weight">{t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)}</span>
-                <span className="needs-bar" role="img" aria-label={t(`закрыто на ${Math.round(q * 100)}%`, `${Math.round(q * 100)}% covered`)}>
-                  <i style={{ width: `${q * 100}%` }} />
+                <span className="needs-weight">
+                  {t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)} · {covered ? t('есть прибор', 'instrument on board') : t('нет прибора', 'no instrument')}
+                </span>
+                <span className="needs-bar" role="img" aria-label={t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)}>
+                  <i style={{ width: `${w * 100}%` }} />
                 </span>
               </li>
             );
@@ -508,12 +511,12 @@ function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; s
   const factors: { k: number; text: L; section: SectionId }[] = [
     {
       k: data,
-      text: { ru: `До Земли дойдёт только ${pct(data)}% данных: канал связи узкий.`, en: `Only ${pct(data)}% of the data will reach Earth: the link is too narrow.` },
+      text: { ru: 'Канал связи не успевает передать всё, что снимают приборы.', en: 'The radio link cannot carry everything the instruments record.' },
       section: 'comms',
     },
     {
       k: power,
-      text: { ru: `Энергии хватит приборам лишь на ${pct(power)}% времени.`, en: `Instruments get power only ${pct(power)}% of the time.` },
+      text: { ru: 'Энергии не хватает, чтобы приборы работали всё время.', en: 'There is not enough power to run the instruments all the time.' },
       section: 'power',
     },
     {
@@ -538,48 +541,12 @@ function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; s
   return worst.k < 0.999 ? { text: worst.text, section: worst.section } : null;
 }
 
-/**
- * The honest forecast: a likely range of the science, never one number. Wide until development is
- * done; even then a flight can surprise. Hidden until there is an orbit and an instrument.
- */
-export function ForecastRange({ ev, design }: { ev: Evaluation; design: Design }) {
-  const t = useT();
-  const [lo, hi] = ev.science.range;
-  if (!design.orbit || design.instruments.length === 0 || hi <= 0) return null;
-  const scale = 1.5;
-  const state = lo >= 1 ? 'ok' : hi >= 1 ? 'tight' : 'over';
-  return (
-    <div className="forecast range" data-state={state}>
-      <div className="gauge-row">
-        <span className="gauge-label">{t('Ожидаемая наука', 'Expected science')}</span>
-        <span className="gauge-value">
-          {t.n(lo * 100)}–{t.pct(hi)}
-        </span>
-      </div>
-      <div
-        className="gauge-track forecast-track"
-        role="img"
-        aria-label={t(`Ожидаемая наука: от ${t.pct(lo)} до ${t.pct(hi)} цели заказчика`, `Expected science: ${t.pct(lo)} to ${t.pct(hi)} of the customer’s target`)}
-      >
-        <div className="range-band" style={{ left: `${Math.min(100, (lo / scale) * 100)}%`, width: `${Math.max(2, Math.min(100, ((hi - lo) / scale) * 100))}%` }} />
-        <i className="range-target" style={{ left: `${100 / scale}%` }} />
-      </div>
-      <p className="gauge-hint">
-        {devDone(design)
-          ? t('Разработка позади. Остальное решит полёт.', 'Development is behind you. The flight decides the rest.')
-          : t('Вилка сузится после разработки. Точно — только в полёте.', 'The range narrows after development. Only the flight tells for sure.')}
-      </p>
-    </div>
-  );
-}
-
 export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
   // While the board still has required findings, the coach already says what to do next.
   const weak = ev.blockers > 0 ? null : weakestLink(ev, design, sc);
   return (
     <div className="budgets">
-      <ForecastRange ev={ev} design={design} />
       {weak && (
         <button type="button" className="weak-link" onClick={() => onGo(weak.section)}>
           <span className="weak-label">{t('Слабое место', 'Weakest link')}</span>

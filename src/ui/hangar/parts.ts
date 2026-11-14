@@ -473,7 +473,6 @@ export function deltas(now: Evaluation, next: Evaluation) {
     mass: next.mass.wet - now.mass.wet,
     power: next.power.load - now.power.load,
     cost: next.cost.total - now.cost.total,
-    science: next.science.projected - now.science.projected,
     blockers: next.blockers - now.blockers,
   };
 }

@@ -329,8 +329,27 @@ export interface MonthRecord {
   science: number;
 }
 
+/** A decision the mission team has to take in flight. */
+export type CrisisKind = 'storm' | 'drift' | 'budget';
+export interface Crisis {
+  id: string;
+  kind: CrisisKind;
+  /** Month since launch (as in MonthRecord.t) when the decision comes up. */
+  month: number;
+  options: string[];
+  /** The option this flight was simulated with. */
+  chosen: string;
+  /** True when nobody chose and the cautious default was taken. */
+  defaulted: boolean;
+  /** For an instrument problem: which instrument. */
+  instrument?: L;
+}
+/** Decisions taken so far, by crisis id. */
+export type Choices = Record<string, string>;
+
 export interface SimResult {
   seed: number;
+  crises: Crisis[];
   months: MonthRecord[];
   events: SimEvent[];
   lost: { month: number; cause: L } | null;

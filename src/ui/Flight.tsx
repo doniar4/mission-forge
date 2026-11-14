@@ -14,6 +14,7 @@ import type { FlightStage, FlightView } from '../three/FlightStage';
 import { LangToggle, ROLES, SoundToggle } from './common';
 import { FlightScene } from './FlightScene';
 import { OrbitView } from './OrbitView';
+import { CrisisCard } from './CrisisCard';
 import { ScienceChart } from './ScienceChart';
 
 const SHADOW: Record<Body, L> = {
@@ -44,6 +45,7 @@ export function Flight() {
   const goto = useStore((s) => s.goto);
   const difficulty = useStore((s) => s.difficulty);
   const inTeam = useStore((s) => !!s.team);
+  const decide = useStore((s) => s.decide);
   const sc = scenarioById(useStore((s) => s.scenarioId));
   const design = useDesign();
   const ev = useMemo(() => evaluate(design, sc, difficulty), [design, sc, difficulty]);
@@ -60,7 +62,9 @@ export function Flight() {
       insertion: orbit.insertionDv > 0,
       totalMonths: sim.months.length,
     }),
-    [sim, vehicle.id, ev.mass.wet, orbit, transitTotal],
+    // Not the whole `sim`: a decision in flight re-simulates it, and the flight must carry on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sim.seed, sim.launchFailed, vehicle.id, ev.mass.wet, orbit, transitTotal],
   );
   const director = useMemo(() => new Director(plan), [plan]);
   const view = useMemo<FlightView>(
@@ -117,6 +121,14 @@ export function Flight() {
 
   const phase = director.phase;
   const shown = director.months;
+
+  // Decisions in flight: stop on the month before the next undecided crisis and ask. In a team
+  // the decision is not shared yet, so the cautious default stands and is only logged.
+  const pending = inTeam ? undefined : sim.crises.find((c) => c.defaulted);
+  useEffect(() => {
+    director.holdAt(pending ? pending.month - 1 : null);
+  }, [director, pending]);
+  const asking = !!pending && director.waiting && phase === 'ops';
 
   // The launch fills the screen; once the spacecraft is at work the telemetry comes back beside it.
   const [full, setFull] = useState(true);
@@ -279,6 +291,18 @@ export function Flight() {
 
   return (
     <div className="page flight" data-full={full || undefined} data-phase={phase}>
+      {asking && pending && (
+        <CrisisCard
+          crisis={pending}
+          ev={ev}
+          monthsLeft={Math.max(1, sim.plannedMonths - (pending.month - transitTotal) + 1)}
+          onPick={(option) => {
+            decide(pending.id, option);
+            play('select');
+            director.release(useStore.getState().sim!.months.length);
+          }}
+        />
+      )}
       <header className="topbar">
         <div className="topbar-left">
           <span className="brand">{t(sc.name)}</span>

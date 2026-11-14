@@ -6,7 +6,6 @@ export interface Delta {
   mass: number;
   power: number;
   cost: number;
-  science: number;
   blockers: number;
 }
 
