@@ -16,7 +16,7 @@ import {
 import type { Difficulty } from '../engine/types';
 import { useT } from '../i18n';
 import { useStore } from '../store';
-import { createTeam, joinTeam, leaveRoom, normalizeCode, roomLink, teamSend, useNet } from '../team/net';
+import { createTeam, isLocalOnly, joinTeam, leaveRoom, normalizeCode, rejoin, roomLink, teamSend, useNet } from '../team/net';
 import { ROLES, TopBar } from './common';
 
 export function useTeamState(): { state: TeamState | null; myId: string; isHost: boolean; lost: boolean } | null {
@@ -124,10 +124,22 @@ export function TeamEntry() {
 export function LostBanner() {
   const t = useT();
   const team = useStore((s) => s.team);
-  if (!team || team.status !== 'lost') return null;
+  if (!team) return null;
+  if (team.status === 'connecting' && team.state)
+    return (
+      <div className="problem banner" role="status">
+        <span>{t('Связь прервалась — переподключаемся…', 'Connection dropped — reconnecting…')}</span>
+      </div>
+    );
+  if (team.status !== 'lost') return null;
   return (
     <div className="problem banner" role="alert">
       <span>{team.error ? t(team.error) : t('Связь потеряна.', 'Connection lost.')}</span>
+      {!team.isHost && (
+        <button type="button" className="link" onClick={() => rejoin()}>
+          {t('Переподключиться', 'Reconnect')}
+        </button>
+      )}
       <button type="button" className="link" onClick={() => leaveRoom()}>
         {t('Выйти из комнаты', 'Leave the room')}
       </button>
@@ -236,7 +248,15 @@ export function Lobby() {
               </span>
               <p className="muted">
                 {st.kind === 'online'
-                  ? t('Назовите код или отправьте ссылку: игрок войдёт со своего устройства.', 'Share the code or the link: a player can join from their own device.')
+                  ? isLocalOnly()
+                    ? t(
+                        'Игра открыта по адресу localhost: с других устройств он не откроется. Запустите сервер командой npm run dev — он покажет адрес в локальной сети.',
+                        'The game is open at localhost, which other devices cannot reach. Start the server with npm run dev: it prints an address on the local network.',
+                      )
+                    : t(
+                        'Назовите код или отправьте ссылку: игрок войдёт со своего устройства. Если игра запущена на этом компьютере, ссылка работает в той же сети Wi‑Fi.',
+                        'Share the code or the link: a player can join from their own device. If the game runs on this computer, the link works on the same Wi‑Fi network.',
+                      )
                   : t('Откройте эту же страницу в другой вкладке этого браузера и войдите по коду в режиме «На этом компьютере».', 'Open this page in another tab of this browser and join with the code in “On this computer” mode.')}
               </p>
               <button type="button" className="secondary" onClick={copy}>

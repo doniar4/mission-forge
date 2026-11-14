@@ -33,7 +33,16 @@ const makeCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.
 const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
 export const normalizeCode = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 
-export const roomLink = (code: string, kind: RoomKind) => `${location.origin}${location.pathname}#room=${code}&k=${kind}`;
+/**
+ * Where other players open the game. A page served from localhost is unreachable from their devices,
+ * so the development server's address on the local network is used instead (see vite.config.ts).
+ */
+function shareOrigin(): string {
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  return local && __LAN_ORIGIN__ ? __LAN_ORIGIN__ : location.origin;
+}
+export const isLocalOnly = () => ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) && !__LAN_ORIGIN__;
+export const roomLink = (code: string, kind: RoomKind) => `${kind === 'online' ? shareOrigin() : location.origin}${location.pathname}#room=${code}&k=${kind}`;
 
 const E = {
   taken: { ru: 'Не удалось подобрать свободный код комнаты. Попробуйте ещё раз.', en: 'Could not find a free room code. Try again.' },
@@ -107,6 +116,7 @@ function register() {
 
 export function leaveRoom() {
   clearTimeout(joinTimer);
+  joined = null;
   host?.close();
   client?.close();
   host = client = null;
@@ -132,6 +142,9 @@ export async function createTeam(o: { kind: RoomKind; name: string; scenarioId: 
             const known = hostState.members.some((x) => x.id === from);
             if (m.t === 'hello' && !known && hostState.members.length >= TEAM_MAX) return host?.sendTo(from, { t: 'full' });
             publish(reduce(hostState, from, m as ClientMsg, { seed: randomSeed() }));
+            // A player coming back after a dropped connection is already a member, so nothing changes
+            // and nothing is broadcast: send them the room as it stands.
+            if (m.t === 'hello') host?.sendTo(from, { t: 'state', state: hostState });
           },
           onLeave: (from) => hostState && publish(reduce(hostState, from, { t: 'drop' }, { seed: 0 })),
         });
@@ -153,6 +166,60 @@ export async function createTeam(o: { kind: RoomKind; name: string; scenarioId: 
   }
 }
 
+/** The room this tab joined as a player, so a dropped connection can be picked up again. */
+let joined: { code: string; kind: RoomKind; name: string } | null = null;
+let retries = 0;
+
+/** Connects to the host and says hello. Throws a RoomError when the room cannot be reached. */
+async function connectClient(code: string, kind: RoomKind, name: string) {
+  const { link, myId } = await joinRoom(code, kind, {
+      onMessage: (m) => {
+        if (!isMsg(m)) return;
+        if (m.t === 'state') {
+          const s = (m as unknown as { state?: TeamState }).state;
+          if (s && typeof s === 'object' && s.code === code) apply(s);
+        } else if (m.t === 'full') {
+          leaveRoom();
+          useNet.setState({ error: E.full });
+        } else if (m.t === 'closed') {
+          joined = null;
+          setTeam({ status: 'lost', error: E.closed });
+        }
+      },
+      onClose: () => {
+        if (client === link) void reconnect();
+      },
+    });
+  client = link;
+  retries = 0;
+  link.send({ t: 'hello', name });
+  return myId;
+}
+
+/** After a dropped connection: a few quiet attempts to get back in before telling the player. */
+async function reconnect() {
+  if (!joined || !useStore.getState().team) return;
+  client?.close();
+  client = null;
+  setTeam({ status: 'connecting', error: null });
+  while (joined && useStore.getState().team && retries < 3) {
+    retries++;
+    try {
+      await connectClient(joined.code, joined.kind, joined.name);
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+  if (useStore.getState().team) setTeam({ status: 'lost', error: E.lost });
+}
+
+/** The "try again" button of a lost connection. */
+export function rejoin() {
+  retries = 0;
+  void reconnect();
+}
+
 export async function joinTeam(codeInput: string, kind: RoomKind, name: string) {
   const code = normalizeCode(codeInput);
   leaveRoom();
@@ -162,23 +229,10 @@ export async function joinTeam(codeInput: string, kind: RoomKind, name: string) 
   }
   useNet.setState({ busy: true, error: null });
   try {
-    const { link, myId } = await joinRoom(code, kind, {
-      onMessage: (m) => {
-        if (!isMsg(m)) return;
-        if (m.t === 'state') {
-          const s = (m as unknown as { state?: TeamState }).state;
-          if (s && typeof s === 'object' && s.code === code) apply(s);
-        } else if (m.t === 'full') {
-          leaveRoom();
-          useNet.setState({ error: E.full });
-        } else if (m.t === 'closed') setTeam({ status: 'lost', error: E.closed });
-      },
-      onClose: () => setTeam({ status: 'lost', error: E.lost }),
-    });
-    client = link;
+    joined = { code, kind, name };
+    const myId = await connectClient(code, kind, name);
     useStore.setState({ team: { isHost: false, myId, status: 'connecting', error: null, state: null }, screen: 'lobby', sim: null });
     register();
-    link.send({ t: 'hello', name });
     joinTimer = setTimeout(() => {
       if (!useStore.getState().team?.state) setTeam({ status: 'lost', error: E.silent });
     }, 6000);
