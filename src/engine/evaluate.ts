@@ -38,7 +38,13 @@ const TANK = 0.1;
 /** Usable share of battery capacity (deep discharge kills cells). */
 const DOD = 0.7;
 /** Science quality a "good" mission is expected to hold for the target years. */
-const TARGET_QUALITY = 0.75;
+const TARGET_QUALITY = 0.65;
+/**
+ * Worth of a year flown after the customer's target years. The first years answer the question
+ * the mission was paid for; an extended mission mostly repeats them, so flying longer cannot
+ * replace better instruments.
+ */
+export const EXTENDED_VALUE = 0.5;
 const REDUNDANT_MASS = 1.15;
 const REDUNDANT_COST = 1.25;
 
@@ -233,7 +239,8 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
 
   // ---- Science ----------------------------------------------------------
   const target = sc.targetYears * 100 * TARGET_QUALITY;
-  const projected = (p0.ratePerYear * p0.duty * p0.returnFraction * effectiveYears) / target;
+  const scienceYears = Math.min(effectiveYears, sc.targetYears) + EXTENDED_VALUE * Math.max(0, effectiveYears - sc.targetYears);
+  const projected = (p0.ratePerYear * p0.duty * p0.returnFraction * scienceYears) / target;
 
   // ---- Review board -----------------------------------------------------
   if (!orbit)
@@ -374,7 +381,8 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
       batteryWh: bat.wh * DOD,
     },
     data: {
-      generated: p0.generated,
+      // What the instruments produce when fully powered: a power shortage is reported on its own gauge.
+      generated: sum(insts.map((i) => i.data)) * cpu.compression,
       downlink: p0.downlink,
       rateMbps: p0.rateMbps,
       contactHours: p0.contactHours,
