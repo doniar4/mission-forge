@@ -5976,10 +5976,6 @@ kbd {
   font: 500 1.75rem/1.1 var(--display);
   letter-spacing: -0.02em;
 }
-.auth-wait {
-  text-align: right;
-  color: var(--ink-2);
-}
 .auth-tabs {
   position: relative;
   display: grid;
@@ -6247,25 +6243,6 @@ kbd {
   font: 700 1.75rem/1 var(--display);
   box-shadow: 0 0 0 6px rgba(255, 107, 44, 0.12);
 }
-.auth-setup p {
-  color: var(--ink-2);
-  line-height: 1.5;
-}
-.auth-setup details summary {
-  cursor: pointer;
-  color: var(--ink);
-  font-weight: 600;
-}
-.auth-setup details p {
-  margin-top: 8px;
-  font-size: 0.875rem;
-}
-.auth-setup code {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 0.8125rem;
-}
 
 @media (max-width: 960px) {
   .auth {
@@ -6310,5 +6287,40 @@ kbd {
   .auth-tabs i,
   .auth-field label {
     transition: none;
+  }
+}
+/* While the session is restored: the card's shape, quietly shimmering, no words. */
+.auth-skeleton {
+  min-height: 300px;
+  align-content: start;
+}
+.auth-skeleton i {
+  display: block;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.03) 30%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03) 70%);
+  background-size: 200% 100%;
+  animation: auth-skel 1.4s linear infinite;
+}
+.auth-skeleton i:first-child {
+  height: 48px;
+  border-radius: 999px;
+}
+.auth-skeleton i:last-child {
+  height: 58px;
+  border-radius: 999px;
+  background-color: rgba(255, 107, 44, 0.12);
+}
+@keyframes auth-skel {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-skeleton i {
+    animation: none;
   }
 }
