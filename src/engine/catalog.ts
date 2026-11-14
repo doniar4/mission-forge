@@ -303,7 +303,7 @@ export const INSTRUMENTS: Instrument[] = [
     id: 'thermal_cryo', tier: 3,
     name: { ru: 'Охлаждаемый инфракрасный радиометр', en: 'Cryocooled infrared radiometer' },
     desc: { ru: 'Профессиональный класс. Датчик охлаждён до −190 °C: различает десятые доли градуса и очаг размером с костёр. Холодильник тяжёл и ест много энергии.', en: 'Professional class. Its detector is cooled to −190 °C: it resolves tenths of a degree and a fire the size of a campfire. The cooler is heavy and power-hungry.' },
-    mass: 50, power: 115, cost: 34, data: 45, pointing: 3, devMonths: 20,
+    mass: 38, power: 95, cost: 26, data: 45, pointing: 3, devMonths: 20,
     measures: { thermal: 1, atmosphere: 0.15 },
   },
   {
@@ -499,13 +499,13 @@ export const POWER: PowerSource[] = [
     id: 'large',
     name: { ru: 'Большие панели', en: 'Large arrays' },
     desc: { ru: 'Для радаров и дальних полётов, где Солнце светит слабее.', en: 'For radars and distant flights where sunlight is weaker.' },
-    mass: 75, power: 0, cost: 16, watts: 2500, solar: true,
+    mass: 75, power: 0, cost: 11, watts: 2500, solar: true,
   },
   {
     id: 'xl',
     name: { ru: 'Сверхбольшие панели', en: 'Extra-large arrays' },
     desc: { ru: 'Размах с теннисный корт. Мощно, тяжело, дорого.', en: 'A wingspan the size of a tennis court. Powerful, heavy, expensive.' },
-    mass: 160, power: 0, cost: 35, watts: 6000, solar: true, advanced: true,
+    mass: 160, power: 0, cost: 22, watts: 6000, solar: true, advanced: true,
   },
   {
     id: 'rtg',
@@ -551,7 +551,7 @@ export const ANTENNAS: Antenna[] = [
     id: 'laser',
     name: { ru: 'Лазерный терминал', en: 'Laser terminal' },
     desc: { ru: 'Рекордная скорость, но луч нужно удерживать с ювелирной точностью, а облака над станцией его блокируют.', en: 'Record-breaking speed, but the beam needs jeweller’s precision and clouds over the station block it.' },
-    mass: 18, power: 90, cost: 30, mbps: 4000, pointing: 3, availability: 0.6, advanced: true, devMonths: 6,
+    mass: 18, power: 90, cost: 20, mbps: 4000, pointing: 3, availability: 0.6, advanced: true, devMonths: 6,
   },
 ];
 
@@ -572,7 +572,7 @@ export const GROUNDS: Ground[] = [
     id: 'dsn',
     name: { ru: 'Сеть дальней космической связи', en: 'Deep space network' },
     desc: { ru: 'Тарелки по 34–70 метров. Ловят шёпот с Марса, но стоят дорого и плохо следят за быстрыми низкими спутниками.', en: '34–70 metre dishes. They hear a whisper from Mars, but cost a lot and track fast low satellites poorly.' },
-    setupCost: 0, yearlyCost: 12, gain: 25,
+    setupCost: 0, yearlyCost: 7, gain: 25,
   },
 ];
 
@@ -593,7 +593,7 @@ export const COMPUTERS: Computer[] = [
     id: 'advanced',
     name: { ru: 'Защищённый компьютер с обработкой на борту', en: 'Hardened computer with onboard processing' },
     desc: { ru: 'Выдерживает радиационные пояса, сам отбирает полезные кадры и сжимает данные на 60%. Память 2 ТБ.', en: 'Survives the radiation belts, picks the useful frames itself and shrinks data by 60%. 2 TB of storage.' },
-    mass: 9, power: 40, cost: 12, storage: 2000, radTol: 3, compression: 0.4, advanced: true,
+    mass: 9, power: 40, cost: 8, storage: 2000, radTol: 3, compression: 0.4, advanced: true,
   },
 ];
 
