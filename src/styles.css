@@ -861,6 +861,10 @@ button:disabled {
   background: #dcefe7;
   color: var(--green);
 }
+.gauge-delta[data-good='neutral'] {
+  background: var(--line-soft);
+  color: var(--ink-2);
+}
 .gauge-track {
   position: relative;
   height: 8px;

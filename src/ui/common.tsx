@@ -98,6 +98,8 @@ export function Stars({ n }: { n: number }) {
 /**
  * A budget bar: how much of a limit is used.
  * `invert` is for resources where more supply than demand is good (shown as demand / supply).
+ * `twoSided` marks a demand that is not simply better when lower (more data is also more
+ * science): its change is shown without a good or bad colour.
  */
 export function Gauge({
   label,
@@ -106,6 +108,7 @@ export function Gauge({
   unit,
   hint,
   digits = 0,
+  twoSided = false,
 }: {
   label: string;
   used: number;
@@ -113,6 +116,7 @@ export function Gauge({
   unit: string;
   hint?: string;
   digits?: number;
+  twoSided?: boolean;
 }) {
   const t = useT();
   // What the last decision did to this resource, shown for a moment: every choice has a price.
@@ -139,7 +143,10 @@ export function Gauge({
         <span className="gauge-label">
           {label}
           {change && Number.isFinite(change.value) && (
-            <span className="gauge-delta" data-good={change.of === 'limit' ? change.value > 0 : change.value < 0}>
+            <span
+              className="gauge-delta"
+              data-good={change.of === 'used' && twoSided ? 'neutral' : change.of === 'limit' ? change.value > 0 : change.value < 0}
+            >
               {change.of === 'limit' ? t('предел ', 'limit ') : ''}
               {change.value > 0 ? '+' : '−'}
               {t.n(Math.abs(change.value), Math.abs(change.value) < 10 ? Math.max(digits, 1) : digits)}

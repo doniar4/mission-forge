@@ -684,7 +684,7 @@ docs/
 | `OrbitView.tsx` | `OrbitView` | схема орбиты в SVG (учитывает `prefers-reduced-motion`) |
 | `ScienceChart.tsx` | `ScienceChart` | график науки против цели |
 | `Debrief.tsx` | `Debrief` | вердикт, оценка, «почему так вышло», счёт, цели ролей (в команде), график, чертёж, сохранение |
-| `common.tsx` | `ROLES, LangToggle, TopBar, BodyGlyph, Stars, Gauge` | общие элементы; `Gauge` 2,6 с показывает изменение значения или предела после последнего решения |
+| `common.tsx` | `ROLES, LangToggle, TopBar, BodyGlyph, Stars, Gauge` | общие элементы; `Gauge` 2,6 с показывает изменение значения или предела после последнего решения: зелёным — если стало лучше, золотым — если хуже, серым (`twoSided`) — если однозначной оценки нет (у данных: меньше данных — легче каналу, но меньше науки) |
 
 ### 7.4 Ход полёта: `flight/director.ts`
 

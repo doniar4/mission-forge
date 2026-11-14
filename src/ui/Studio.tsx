@@ -301,6 +301,7 @@ function Budgets({ ev }: { ev: Evaluation }) {
         limit={ev.data.downlink}
         unit={t('ГБ/сут', 'GB/day')}
         digits={1}
+        twoSided
         hint={t('создают приборы / пропускает канал связи', 'produced by instruments / carried by the link')}
       />
       <Gauge
