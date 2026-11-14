@@ -27,6 +27,7 @@ import type {
   Orbit,
   Role,
   Scenario,
+  Vehicle,
 } from './types';
 
 export const G0 = 9.80665;
@@ -173,6 +174,11 @@ export function performance(r: Flying, sc: Scenario, s: FlightState) {
   };
 }
 
+/** What a launch costs for a spacecraft of this fuelled mass: a flat price, or by the kilogram on a rideshare. */
+export function launchPrice(veh: Vehicle, wetKg: number): number {
+  return veh.cost + (veh.costPerKg ?? 0) * Math.max(0, wetKg - (veh.baseKg ?? 0));
+}
+
 /** Tsiolkovsky's rocket equation, including the tanks that hold the propellant. */
 export function propellantFor(dryKg: number, dv: number, isp: number): number {
   if (dv <= 0 || isp <= 0) return 0;
@@ -248,8 +254,8 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
   const groundCost = gr.setupCost + gr.yearlyCost * flightYears;
   const opsCost = o.opsPerYear * (d.lifeYears + transitMonths / 24);
   // A bigger spacecraft needs a bigger team, and every month of development is a month of salaries.
-  const devCost = devMonths * (0.3 + dry / 400);
-  const launchCost = veh?.cost ?? 0;
+  const devCost = devMonths * (0.12 + dry / 1000);
+  const launchCost = veh ? launchPrice(veh, wet) : 0;
   const total = payloadCost + busCost + launchCost + groundCost + opsCost + devCost + test.cost;
   const budget = Math.round(sc.budget * DIFFICULTY[diff].budget);
 

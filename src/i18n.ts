@@ -18,7 +18,12 @@ export function makeT(lang: Lang): Translator {
   const t = ((a: L | string, b?: string) => (typeof a === 'string' ? (lang === 'ru' ? a : b ?? a) : a[lang])) as Translator;
   t.lang = lang;
   t.n = n;
-  t.money = (x) => (lang === 'ru' ? `$${n(x, x < 10 ? 1 : 0)} млн` : `$${n(x, x < 10 ? 1 : 0)}M`);
+  // Millions of dollars; below a million, in thousands, so a $50k part does not read as "$0M".
+  t.money = (x) => {
+    if (x !== 0 && Math.abs(x) < 0.995) return lang === 'ru' ? `$${n(x * 1000)} тыс.` : `$${n(x * 1000)}k`;
+    const d = Math.abs(x) < 10 ? 1 : 0;
+    return lang === 'ru' ? `$${n(x, d)} млн` : `$${n(x, d)}M`;
+  };
   t.pct = (x) => `${n(x * 100)}%`;
   return t;
 }
