@@ -17,12 +17,12 @@ const LADDER: Record<string, Record<Rung, Partial<Design>>> = {
   firewatch: {
     entry: { orbit: 'sso', instruments: ['thermal_micro', 'multispec_lite', 'cam_wide'], power: 'small', battery: 'b100', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'magnetic', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 3 },
     std: { orbit: 'sso', instruments: ['thermal_ir', 'multispec'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 3 },
-    pro: { orbit: 'sso', instruments: ['thermal_cryo', 'multispec'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'own', computer: 'standard', adcs: 'precise', propulsion: 'mono', vehicle: 'kolibri', lifeYears: 3 },
+    pro: { orbit: 'sso', instruments: ['thermal_cryo', 'multispec'], power: 'medium', battery: 'b500', comms: 'xband', ground: 'own', computer: 'standard', adcs: 'precise', propulsion: 'mono', structure: 'composite', vehicle: 'rideshare', lifeYears: 3 },
   },
   ocean: {
     entry: { orbit: 'sso', instruments: ['alt_lidar', 'sounder_lite', 'scatterometer'], power: 'small', battery: 'b100', comms: 'sband', ground: 'network', computer: 'basic', adcs: 'wheels', propulsion: 'mono', vehicle: 'rideshare', lifeYears: 7 },
     std: { orbit: 'sso', instruments: ['altimeter', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'kolibri', lifeYears: 7, redundancy: 'redundant' },
-    pro: { orbit: 'sso', instruments: ['alt_pro', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'vector', lifeYears: 7, redundancy: 'redundant' },
+    pro: { orbit: 'sso', instruments: ['alt_pro', 'sounder', 'scatterometer'], power: 'medium', battery: 'b500', comms: 'sband', ground: 'network', computer: 'standard', adcs: 'wheels', propulsion: 'mono', vehicle: 'vector', lifeYears: 7 },
   },
   lunarice: {
     entry: { orbit: 'llo', instruments: ['neutron', 'alt_lidar', 'cam_wide'], power: 'small', battery: 'b500', comms: 'sband', ground: 'dsn', computer: 'standard', adcs: 'wheels', propulsion: 'biprop', vehicle: 'vector', lifeYears: 2 },

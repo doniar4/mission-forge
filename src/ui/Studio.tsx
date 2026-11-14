@@ -1,3 +1,4 @@
+import { play } from '../audio/sfx';
 import { useEffect, useMemo, useState } from 'react';
 import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
@@ -7,14 +8,14 @@ import type { Check, Design, Evaluation, Measure, Scenario } from '../engine/typ
 import { useT } from '../i18n';
 import { shareLink, useDesign, useStore } from '../store';
 import type { Backdrop } from '../three/CraftStage';
-import { Gauge, LangToggle, ROLES } from './common';
+import { Gauge, LangToggle, ROLES, SoundToggle } from './common';
 import { Craft3D } from './Craft3D';
 import { PartRail, type Delta } from './hangar/PartRail';
 import { LESSONS, SECTIONS, WHERE, deltas, groupsFor, type RailGroup, type SectionId } from './hangar/parts';
 import { LostBanner, TeamPanel, useTeamState } from './Team';
 
 /** The order in which a newcomer should clear the required findings. */
-const FIRST = ['no_orbit', 'no_instruments', 'no_engine', 'magnetic', 'tank_limit', 'bus_power', 'ion_power', 'no_vehicle', 'vehicle_reach', 'overweight', 'over_budget'];
+const FIRST = ['no_orbit', 'no_vehicle', 'vehicle_reach', 'no_instruments', 'overweight', 'bus_power', 'ion_power', 'no_engine', 'magnetic', 'tank_limit', 'over_budget'];
 
 /** Wide screens keep the hangar on one screen; narrow ones scroll. */
 function useWide() {
@@ -52,6 +53,14 @@ export function Studio() {
   const [groupIx, setGroupIx] = useState(0);
   const [hover, setHover] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Free look: the panels step aside and the spacecraft can be turned and zoomed at will.
+  const [inspect, setInspect] = useState(false);
+  useEffect(() => {
+    if (!inspect) return;
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setInspect(false);
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [inspect]);
 
   const current = SECTIONS.find((x) => x.id === section)!;
   const canEdit = !team?.state || section === 'brief' || rolesOf(team.state, team.myId).includes(current.role);
@@ -61,9 +70,12 @@ export function Studio() {
   const rail = group?.kind === 'rail' ? group : null;
 
   const go = (s: SectionId) => {
+    if (s !== section) play('tick');
     setSection(s);
-    setGroupIx(0);
+    // Instruments open on the standard class: a set of those meets the goal.
+    setGroupIx(s === 'payload' ? 1 : 0);
     setHover(null);
+    setInspect(false);
   };
 
   // What each card would do to the mission, against the design as it stands.
@@ -83,9 +95,14 @@ export function Studio() {
   })();
 
   const pick = (g: RailGroup, id: string) => {
-    if (!canEdit) return;
-    if (g.multi) toggle(id);
-    else if (!g.selected.includes(id)) patch(g.pick(id));
+    if (!canEdit) return play('deny');
+    if (g.multi) {
+      play(g.selected.includes(id) ? 'deselect' : 'select');
+      toggle(id);
+    } else if (!g.selected.includes(id)) {
+      play('select');
+      patch(g.pick(id));
+    }
   };
 
   const copy = async () => {
@@ -103,8 +120,17 @@ export function Studio() {
   const next = SECTIONS[index + 1];
 
   return (
-    <div className="hangar" data-section={section}>
-      <Craft3D design={shown} ev={shownEv} variant="stage" focus={current.focus} backdrop={backdrop} offset={wide ? [0, 0.17] : [0, 0]} />
+    <div className="hangar" data-section={section} data-inspect={inspect || undefined}>
+      <Craft3D
+        design={shown}
+        ev={shownEv}
+        variant="stage"
+        focus={inspect ? [] : current.focus}
+        backdrop={backdrop}
+        offset={wide && !inspect ? [0, 0.17] : [0, 0]}
+        rocket={section === 'rocket' && !inspect ? shown.vehicle : null}
+        inspect={inspect}
+      />
       <div className="hangar-shade" aria-hidden="true" />
 
       <header className="hangar-top">
@@ -161,26 +187,61 @@ export function Studio() {
         </nav>
 
         <div className="hangar-tools">
+          <button
+            type="button"
+            className="icon-btn"
+            aria-pressed={inspect}
+            aria-label={t('Осмотреть аппарат', 'Inspect the spacecraft')}
+            title={t('Осмотреть аппарат', 'Inspect the spacecraft')}
+            onClick={() => setInspect((x) => !x)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
           {!team && (
             <>
-              <button type="button" className="ghost" onClick={copy}>
-                {copied ? t('Ссылка скопирована', 'Link copied') : t('Поделиться', 'Share')}
+              <button
+                type="button"
+                className="icon-btn tool-extra"
+                aria-label={copied ? t('Ссылка скопирована', 'Link copied') : t('Поделиться проектом', 'Share the design')}
+                title={copied ? t('Ссылка скопирована', 'Link copied') : t('Поделиться проектом', 'Share the design')}
+                onClick={copy}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  {copied ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />}
+                </svg>
               </button>
               <button
                 type="button"
-                className="ghost"
+                className="icon-btn tool-extra"
+                aria-label={t('Начать проект заново', 'Start the design over')}
+                title={t('Начать проект заново', 'Start the design over')}
                 onClick={() => {
                   if (window.confirm(t('Очистить проект и начать заново?', 'Clear the design and start over?'))) resetDesign();
                 }}
               >
-                {t('Сбросить', 'Reset')}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4.5h4.5" />
+                </svg>
               </button>
             </>
           )}
+          <SoundToggle />
           <LangToggle />
         </div>
       </header>
       <LostBanner />
+
+      {inspect && (
+        <div className="inspect-bar glass" role="status">
+          <span>{t('Тяните, чтобы повернуть; колесо или щипок — приблизить.', 'Drag to turn; scroll or pinch to zoom.')}</span>
+          <button type="button" className="secondary small" onClick={() => setInspect(false)}>
+            {t('Вернуться к сборке', 'Back to building')}
+          </button>
+        </div>
+      )}
 
       <aside className="hangar-left glass" aria-label={t('Ресурсы миссии', 'Mission resources')}>
         <h2 className="panel-title">{t('Ресурсы', 'Resources')}</h2>
@@ -195,7 +256,15 @@ export function Studio() {
             <TeamPanel goals={goals} blockers={ev.blockers} />
           ) : (
             <div className="launch">
-              <button type="button" className="launch-btn" disabled={ev.blockers > 0} onClick={launch}>
+              <button
+                type="button"
+                className="launch-btn"
+                disabled={ev.blockers > 0}
+                onClick={() => {
+                  play('beep');
+                  launch();
+                }}
+              >
                 <span>{t('На старт', 'To the pad')}</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M5 12h14M13 6l6 6-6 6" />
@@ -285,6 +354,17 @@ function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () 
             <dd>{t(`${sc.targetYears} г.`, `${sc.targetYears} yr`)}</dd>
           </div>
         </dl>
+        <ol className="how">
+          <li>
+            <b>{t('Орбита и ракета.', 'Orbit and rocket.')}</b> {t('Ракета задаёт предел массы.', 'The rocket sets the mass limit.')}
+          </li>
+          <li>
+            <b>{t('Аппарат.', 'Spacecraft.')}</b> {t('Приборы, энергия, связь — держите шкалы слева ниже предела.', 'Instruments, power, comms — keep the gauges on the left under their limits.')}
+          </li>
+          <li>
+            <b>{t('Запуск.', 'Launch.')}</b> {t('Когда комиссия даст допуск, жмите «На старт».', 'When the board clears you, press “To the pad”.')}
+          </li>
+        </ol>
         <button type="button" className="primary" onClick={onStart}>
           {t('Начать сборку', 'Start building')}
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -384,11 +464,47 @@ function Budgets({ ev }: { ev: Evaluation }) {
   const t = useT();
   return (
     <div className="budgets">
-      <Gauge label={t('Масса', 'Mass')} used={ev.mass.wet} limit={ev.mass.capacity} unit={t('кг', 'kg')} hint={t('с топливом / сколько довезёт ракета', 'fuelled / what the rocket can carry')} />
-      <Gauge label={t('Энергия', 'Power')} used={ev.power.load} limit={ev.power.average} unit={t('Вт', 'W')} hint={t('потребление / средняя выработка', 'demand / average supply')} />
-      <Gauge label={t('Данные', 'Data')} used={ev.data.generated} limit={ev.data.downlink} unit={t('ГБ/сут', 'GB/day')} digits={1} twoSided hint={t('создают приборы / пропускает связь', 'produced / carried by the link')} />
-      <Gauge label={t('Бюджет', 'Budget')} used={ev.cost.total} limit={ev.cost.budget} unit={t('млн $', '$M')} hint={t('стоимость миссии / бюджет', 'mission cost / budget')} />
-      <Gauge label={t('Срок разработки', 'Development')} used={ev.time.devMonths} limit={ev.time.deadline} unit={t('мес.', 'mo')} />
+      <Gauge
+        label={t('Масса', 'Mass')}
+        used={ev.mass.wet}
+        limit={ev.mass.capacity}
+        unit={t('кг', 'kg')}
+        hint={t('с топливом / сколько довезёт ракета', 'fuelled / what the rocket can carry')}
+        fix={ev.mass.capacity > 0 ? t('Ракета побольше или прибор полегче.', 'A bigger rocket or a lighter instrument.') : t('Выберите ракету — она задаёт предел.', 'Choose a rocket: it sets the limit.')}
+      />
+      <Gauge
+        label={t('Энергия', 'Power')}
+        used={ev.power.load}
+        limit={ev.power.average}
+        unit={t('Вт', 'W')}
+        hint={t('потребление / средняя выработка', 'demand / average supply')}
+        fix={t('Панели побольше или приборы поскромнее.', 'Bigger arrays or fewer power-hungry instruments.')}
+      />
+      <Gauge
+        label={t('Данные', 'Data')}
+        used={ev.data.generated}
+        limit={ev.data.downlink}
+        unit={t('ГБ/сут', 'GB/day')}
+        digits={1}
+        twoSided
+        hint={t('создают приборы / пропускает связь', 'produced / carried by the link')}
+        fix={t('Антенна мощнее или больше станций.', 'A stronger antenna or more stations.')}
+      />
+      <Gauge
+        label={t('Бюджет', 'Budget')}
+        used={ev.cost.total}
+        limit={ev.cost.budget}
+        unit={t('млн $', '$M')}
+        hint={t('стоимость миссии / бюджет', 'mission cost / budget')}
+        fix={t('Приборы классом ниже, ракета дешевле или миссия короче.', 'Cheaper instruments, a cheaper rocket or a shorter mission.')}
+      />
+      <Gauge
+        label={t('Срок разработки', 'Development')}
+        used={ev.time.devMonths}
+        limit={ev.time.deadline}
+        unit={t('мес.', 'mo')}
+        fix={t('Меньше приборов или испытания короче.', 'Fewer instruments or shorter testing.')}
+      />
       <div className="forecast" data-state={ev.science.projected >= 1 ? 'ok' : ev.science.projected >= 0.5 ? 'tight' : 'over'}>
         <div className="gauge-row">
           <span className="gauge-label">{t('Прогноз науки', 'Science forecast')}</span>
@@ -407,11 +523,14 @@ function Review({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => voi
   const t = useT();
   const sorted = [...checks].sort((a, b) => (a.level === b.level ? 0 : a.level === 'blocker' ? -1 : 1));
   return (
-    <div className="review">
-      <h2 className="panel-title">
+    <details className="review">
+      <summary className="panel-title">
         {t('Комиссия', 'Review board')}
         <span className="muted"> {sorted.length > 0 ? sorted.length : ''}</span>
-      </h2>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </summary>
       {sorted.length === 0 ? (
         <p className="muted">{t('Замечаний нет.', 'No findings.')}</p>
       ) : (
@@ -434,6 +553,6 @@ function Review({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => voi
           ))}
         </ul>
       )}
-    </div>
+    </details>
   );
 }

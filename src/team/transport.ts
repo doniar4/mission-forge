@@ -119,10 +119,24 @@ async function joinLocal(code: string, h: ClientHandlers): Promise<{ link: Clien
 
 // ---- online: PeerJS --------------------------------------------------------
 
+/*
+ * Every player has a key that survives a dropped connection (kept in sessionStorage per room), so a
+ * player who reconnects is the same member to the host and keeps their roles. The first message on a
+ * new connection is the key; after that the host knows that connection by it.
+ *
+ * WebRTC can take a long time to notice a dead peer, so both sides send a ping every PING ms and
+ * treat SILENCE ms without hearing anything as a lost connection.
+ */
+const PING = 3000;
+const SILENCE = 12000;
+
 interface PeerLike {
   id: string;
+  destroyed: boolean;
+  disconnected: boolean;
   on: (ev: string, cb: (...a: never[]) => void) => void;
   connect: (id: string, o?: object) => ConnLike;
+  reconnect: () => void;
   destroy: () => void;
 }
 interface ConnLike {
@@ -133,10 +147,21 @@ interface ConnLike {
   close: () => void;
 }
 
+const isWire = (m: unknown, k: string): m is { k: string; key?: string } =>
+  typeof m === 'object' && m !== null && (m as { k?: unknown }).k === k;
+
+function safeSend(c: ConnLike, m: unknown) {
+  try {
+    if (c.open) c.send(m);
+  } catch {
+    // A connection that is closing throws; the heartbeat will notice it is gone.
+  }
+}
+
 async function newPeer(id?: string): Promise<PeerLike> {
   // Loaded on demand, so players who never go online do not download it.
   const { Peer } = await import('peerjs');
-  const peer = (id ? new Peer(id) : new Peer()) as unknown as PeerLike;
+  const peer = (id ? new Peer(id, { debug: 0 }) : new Peer({ debug: 0 })) as unknown as PeerLike;
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new RoomError('network', 'The PeerJS broker did not answer')), 10000);
     peer.on('open', (() => {
@@ -147,42 +172,102 @@ async function newPeer(id?: string): Promise<PeerLike> {
       clearTimeout(timer);
       reject(e?.type === 'unavailable-id' ? new RoomError('taken') : new RoomError('network', e?.type));
     }) as never);
+  }).catch((e) => {
+    peer.destroy();
+    throw e;
   });
+  // The broker is only needed to introduce players; if it drops us, come back so newcomers can still join.
+  peer.on('disconnected', (() => {
+    setTimeout(() => {
+      if (!peer.destroyed && peer.disconnected) peer.reconnect();
+    }, 1000);
+  }) as never);
   return peer;
 }
 
 async function hostPeer(code: string, h: HostHandlers): Promise<HostLink> {
   const peer = await newPeer(peerId(code));
-  const conns = new Map<string, ConnLike>();
+  /** The live connection of each player, by key, and when we last heard from it. */
+  const conns = new Map<string, { conn: ConnLike; seen: number }>();
+  const drop = (key: string, conn: ConnLike) => {
+    const cur = conns.get(key);
+    // A player who already reconnected on a new connection is still here.
+    if (!cur || cur.conn !== conn) return;
+    conns.delete(key);
+    h.onLeave(key);
+  };
   peer.on('connection', ((conn: ConnLike) => {
-    conn.on('open', (() => conns.set(conn.peer, conn)) as never);
-    conn.on('data', ((m: unknown) => h.onMessage(conn.peer, m)) as never);
-    conn.on('close', (() => {
-      conns.delete(conn.peer);
-      h.onLeave(conn.peer);
+    let key = '';
+    conn.on('data', ((m: unknown) => {
+      if (isWire(m, 'id') && typeof m.key === 'string' && m.key) {
+        const old = conns.get(m.key);
+        key = m.key;
+        conns.set(key, { conn, seen: Date.now() });
+        if (old && old.conn !== conn) old.conn.close();
+        return;
+      }
+      if (!key) return;
+      const cur = conns.get(key);
+      if (cur?.conn === conn) cur.seen = Date.now();
+      if (isWire(m, 'ping')) return safeSend(conn, { k: 'pong' });
+      if (isWire(m, 'pong')) return;
+      h.onMessage(key, m);
     }) as never);
+    conn.on('close', (() => key && drop(key, conn)) as never);
+    conn.on('error', (() => key && drop(key, conn)) as never);
   }) as never);
   // Later network hiccups are survivable; the broker is only needed to introduce new players.
   peer.on('error', (() => undefined) as never);
+  const beat = setInterval(() => {
+    const now = Date.now();
+    conns.forEach(({ conn, seen }, key) => {
+      if (now - seen > SILENCE) {
+        drop(key, conn);
+        conn.close();
+      } else safeSend(conn, { k: 'ping' });
+    });
+  }, PING);
   return {
-    broadcast: (m) => conns.forEach((c) => c.open && c.send(m)),
-    sendTo: (id, m) => conns.get(id)?.send(m),
+    broadcast: (m) => conns.forEach(({ conn }) => safeSend(conn, m)),
+    sendTo: (id, m) => {
+      const c = conns.get(id);
+      if (c) safeSend(c.conn, m);
+    },
     close: () => {
-      conns.forEach((c) => c.send({ t: 'closed' }));
+      clearInterval(beat);
+      conns.forEach(({ conn }) => safeSend(conn, { t: 'closed' }));
       // Give the farewell a moment to leave before tearing the connection down.
       sleep(200).then(() => peer.destroy());
     },
   };
 }
 
-async function joinPeer(code: string, h: ClientHandlers): Promise<{ link: ClientLink; myId: string }> {
+/** This tab's key for a room: the same after a reload or a dropped connection. */
+function playerKey(code: string): string {
+  const name = `mission-forge-key-${code}`;
+  try {
+    const saved = sessionStorage.getItem(name);
+    if (saved) return saved;
+    const key = Math.random().toString(36).slice(2, 12);
+    sessionStorage.setItem(name, key);
+    return key;
+  } catch {
+    return Math.random().toString(36).slice(2, 12);
+  }
+}
+
+async function connectOnce(code: string): Promise<{ peer: PeerLike; conn: ConnLike }> {
   const peer = await newPeer();
-  const conn = peer.connect(peerId(code), { reliable: true });
+  const conn = peer.connect(peerId(code), { reliable: true, serialization: 'json' });
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new RoomError('notfound')), 12000);
     conn.on('open', (() => {
       clearTimeout(timer);
       resolve();
+    }) as never);
+    conn.on('error', (() => {
+      clearTimeout(timer);
+      reject(new RoomError('network', 'connection'));
     }) as never);
     peer.on('error', ((e: { type?: string }) => {
       clearTimeout(timer);
@@ -192,7 +277,57 @@ async function joinPeer(code: string, h: ClientHandlers): Promise<{ link: Client
     peer.destroy();
     throw e;
   });
-  conn.on('data', ((m: unknown) => h.onMessage(m)) as never);
-  conn.on('close', h.onClose as never);
-  return { myId: peer.id, link: { send: (m) => conn.send(m), close: () => peer.destroy() } };
+  return { peer, conn };
+}
+
+async function joinPeer(code: string, h: ClientHandlers): Promise<{ link: ClientLink; myId: string }> {
+  // A host that has just reloaded takes a moment to reappear at the broker: try a few times.
+  let made: { peer: PeerLike; conn: ConnLike } | null = null;
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3 && !made; attempt++) {
+    if (attempt) await sleep(1500);
+    try {
+      made = await connectOnce(code);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  if (!made) throw lastError instanceof RoomError ? lastError : new RoomError('network');
+  const { peer, conn } = made;
+  const key = playerKey(code);
+  conn.send({ k: 'id', key });
+
+  let seen = Date.now();
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(beat);
+    h.onClose();
+  };
+  const beat = setInterval(() => {
+    if (Date.now() - seen > SILENCE) {
+      close();
+      peer.destroy();
+    } else safeSend(conn, { k: 'ping' });
+  }, PING);
+  conn.on('data', ((m: unknown) => {
+    seen = Date.now();
+    if (isWire(m, 'ping')) return safeSend(conn, { k: 'pong' });
+    if (isWire(m, 'pong')) return;
+    h.onMessage(m);
+  }) as never);
+  conn.on('close', close as never);
+  conn.on('error', close as never);
+  return {
+    myId: key,
+    link: {
+      send: (m) => safeSend(conn, m),
+      close: () => {
+        closed = true;
+        clearInterval(beat);
+        peer.destroy();
+      },
+    },
+  };
 }

@@ -248,7 +248,7 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
   const groundCost = gr.setupCost + gr.yearlyCost * flightYears;
   const opsCost = o.opsPerYear * (d.lifeYears + transitMonths / 24);
   // A bigger spacecraft needs a bigger team, and every month of development is a month of salaries.
-  const devCost = devMonths * (0.6 + dry / 500);
+  const devCost = devMonths * (0.3 + dry / 400);
   const launchCost = veh?.cost ?? 0;
   const total = payloadCost + busCost + launchCost + groundCost + opsCost + devCost + test.cost;
   const budget = Math.round(sc.budget * DIFFICULTY[diff].budget);
