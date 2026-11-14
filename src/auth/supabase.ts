@@ -1,18 +1,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /*
- * Accounts are optional. The game is fully playable without them; with a Supabase project
- * configured (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local, see .env.example)
- * players can create an account and sign in.
+ * Accounts are optional: the game is fully playable without them. The project's own Supabase
+ * address and publishable key are built in below, so sign-in works locally and in every build
+ * without any .env file. A deployment can point elsewhere with VITE_SUPABASE_URL and
+ * VITE_SUPABASE_ANON_KEY (Vercel project settings), which take precedence.
  *
- * Only the public "anon" (publishable) key belongs here: it is meant to be shipped in a browser
- * and is limited by the project's Row Level Security. Never put the service_role key in the site.
+ * Only the publishable ("anon") key may appear here: Supabase designs it to be public, and the
+ * project's Row Level Security limits what it can do. The secret / service_role key must never
+ * be put in the site.
  *
  * The client library is loaded on demand, so players who never touch accounts do not download it.
  */
 
-const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
-const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
+const PROJECT_URL = 'https://xewgmvcowxyptbetuohf.supabase.co';
+const PUBLISHABLE_KEY = 'sb_publishable_A8d9fwXBkU8SKZjNE3g4Rg_jAz1zG5g';
+
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || PROJECT_URL;
+const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || PUBLISHABLE_KEY;
 
 /** True when the site was built with a Supabase project to sign in to. */
 export const authConfigured = /^https:\/\/.+/.test(url) && anonKey.length > 20;
