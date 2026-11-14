@@ -43,6 +43,25 @@ export function PartRail({
   const on = group.selected.includes(card.id);
   const d = deltas[card.id];
   const swipe = useRef<{ x: number; done: boolean } | null>(null);
+  // "All options": every card at once, to jump straight to one instead of stepping through.
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => setMenu(false), [group.id]);
+  useEffect(() => {
+    if (!menu) return;
+    const key = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && setMenu(false);
+    const away = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (!menuRef.current?.contains(el) && !el.closest('.rail-all')) setMenu(false);
+    };
+    window.addEventListener('keydown', key);
+    window.addEventListener('pointerdown', away);
+    menuRef.current?.querySelector<HTMLButtonElement>('[aria-current="true"]')?.focus();
+    return () => {
+      window.removeEventListener('keydown', key);
+      window.removeEventListener('pointerdown', away);
+    };
+  }, [menu]);
 
   const go = (to: number) => {
     const next = Math.min(count - 1, Math.max(0, to));
@@ -181,6 +200,69 @@ export function PartRail({
         </button>
       </div>
 
+      {menu && (
+        <div className="rail-menu" ref={menuRef} role="dialog" aria-label={t(`Все варианты: ${group.title}`, `All options: ${group.title}`)}>
+          <div className="rail-menu-head">
+            <b>{group.title}</b>
+            <span>{t(`${count} вариантов`, `${count} options`)}</span>
+          </div>
+          <div className="rail-menu-grid">
+            {group.cards.map((c, i) => {
+              const fitted = group.selected.includes(c.id);
+              const dd = deltas[c.id];
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="rail-tile"
+                  aria-current={i === index ? 'true' : undefined}
+                  data-on={fitted || undefined}
+                  data-warn={!!c.warning || undefined}
+                  onClick={() => {
+                    go(i);
+                    setMenu(false);
+                  }}
+                  onMouseEnter={() => !disabled && onPreview(c.id)}
+                  onMouseLeave={() => onPreview(null)}
+                >
+                  <img src={c.thumb} alt="" loading="lazy" decoding="async" />
+                  <span className="rail-tile-text">
+                    <span className="rail-tile-name">
+                      {c.tier && (
+                        <span className="part-tier" data-tier={c.tier.level}>
+                          <i aria-hidden="true" />
+                          <i aria-hidden="true" />
+                          <i aria-hidden="true" />
+                        </span>
+                      )}
+                      {c.name}
+                    </span>
+                    <span className="rail-tile-facts">
+                      {c.stats.slice(0, 2).map((x) => (
+                        <span key={x.label}>
+                          {x.label} <b>{x.value}</b>
+                        </span>
+                      ))}
+                    </span>
+                    {fitted ? (
+                      <span className="rail-tile-state">{multi ? t('на борту', 'on board') : t('установлено', 'fitted')}</span>
+                    ) : c.warning ? (
+                      <span className="rail-tile-warn">{c.warning}</span>
+                    ) : dd && Math.abs(dd.cost) >= 0.1 ? (
+                      <span className="rail-tile-delta">
+                        {dd.cost > 0 ? '+' : '−'}
+                        {t.money(Math.abs(dd.cost))}
+                        {Math.abs(dd.mass) >= 0.5 && ` · ${dd.mass > 0 ? '+' : '−'}${t.n(Math.abs(dd.mass))} ${t('кг', 'kg')}`}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {count > 1 && (
         <div className="rail-dots">
           <span className="rail-count" aria-live="polite">
@@ -198,6 +280,15 @@ export function PartRail({
               />
             ))}
           </span>
+          <button type="button" className="rail-all" aria-expanded={menu} onClick={() => setMenu((x) => !x)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="6" height="6" rx="1.5" />
+              <rect x="14" y="4" width="6" height="6" rx="1.5" />
+              <rect x="4" y="14" width="6" height="6" rx="1.5" />
+              <rect x="14" y="14" width="6" height="6" rx="1.5" />
+            </svg>
+            {t('Все варианты', 'All options')}
+          </button>
         </div>
       )}
     </div>
