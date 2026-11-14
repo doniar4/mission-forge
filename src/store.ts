@@ -76,7 +76,8 @@ interface Store {
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      lang: 'ru',
+      // English first: the game is judged by an international jury. Russian is one click away.
+      lang: 'en',
       screen: 'home',
       scenarioId: 'firewatch',
       difficulty: 'engineer',
@@ -150,7 +151,9 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'mission-forge',
-      version: 1,
+      // v2: English became the default language. Saved games keep everything else.
+      version: 2,
+      migrate: (saved, from) => (from < 2 ? { ...(saved as object), lang: 'en' } : saved) as Store,
       onRehydrateStorage: () => (s) => {
         if (s) setMuted(!s.sound);
       },

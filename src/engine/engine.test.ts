@@ -301,3 +301,18 @@ describe('consequences', () => {
     expect(simulate(d, mars, 'director', 42)).toEqual(simulate(d, mars, 'director', 42));
   });
 });
+
+describe('real missions to compare with', () => {
+  it('every scenario except the sandbox has a sourced real mission', async () => {
+    const { REAL_MISSIONS } = await import('./realMissions');
+    const { SCENARIOS } = await import('./scenarios');
+    for (const sc of SCENARIOS.filter((s) => !s.sandbox)) {
+      const m = REAL_MISSIONS[sc.id];
+      expect(m, sc.id).toBeTruthy();
+      expect(m.massKg).toBeGreaterThan(0);
+      expect(m.powerW).toBeGreaterThan(0);
+      expect(m.sources.length).toBeGreaterThan(0);
+      for (const s of m.sources) expect(s.url).toMatch(/^https:\/\//);
+    }
+  });
+});

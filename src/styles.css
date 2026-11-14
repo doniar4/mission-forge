@@ -3232,3 +3232,73 @@ details.review[open] > summary svg {
     display: none;
   }
 }
+
+/* ---- a real NASA mission beside the player's spacecraft ---------------------- */
+.real-intro {
+  margin-bottom: 14px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.real-table-wrap {
+  overflow-x: auto;
+}
+.real-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.real-table th,
+.real-table td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: top;
+}
+.real-table thead th {
+  font: 600 0.75rem/1.2 var(--body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.real-table tbody th {
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.real-table td:nth-child(2) {
+  font-weight: 600;
+}
+.real-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.real-lesson {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--orange);
+  border-radius: 0 10px 10px 0;
+  background: rgba(255, 154, 102, 0.07);
+  line-height: 1.5;
+}
+.real-sources {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.real-sources a {
+  color: var(--ink-2);
+}
+.real-hint {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.real-hint b {
+  color: var(--ink);
+}

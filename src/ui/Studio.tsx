@@ -12,6 +12,7 @@ import { Gauge, LangToggle, ROLES, SoundToggle } from './common';
 import { Craft3D } from './Craft3D';
 import { PartRail, type Delta } from './hangar/PartRail';
 import { LESSONS, SECTIONS, WHERE, deltas, groupsFor, type RailGroup, type SectionId } from './hangar/parts';
+import { RealMissionHint } from './RealMission';
 import { LostBanner, TeamPanel, useTeamState } from './Team';
 
 /** The order in which a newcomer should clear the required findings. */
@@ -362,6 +363,7 @@ function Brief({ sc, ev, onStart }: { sc: Scenario; ev: Evaluation; onStart: () 
     <div className="brief-panel">
       <div className="brief-main">
         <p className="brief-text">{t(sc.brief)}</p>
+        <RealMissionHint scenarioId={sc.id} />
         <dl className="terms">
           <div>
             <dt>{t('Бюджет', 'Budget')}</dt>
