@@ -16,8 +16,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const PROJECT_URL = 'https://xewgmvcowxyptbetuohf.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_A8d9fwXBkU8SKZjNE3g4Rg_jAz1zG5g';
 
-const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || PROJECT_URL;
-const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || PUBLISHABLE_KEY;
+/**
+ * Build variables are pasted by hand into hosting dashboards, and a whole "NAME=value NAME=value"
+ * block sometimes lands in one field. Take the project address or key out of whatever is there,
+ * and fall back to the built-in project when nothing usable is found.
+ */
+export function pickUrl(raw: string | undefined): string {
+  const m = (raw ?? '').match(/https:\/\/[a-z0-9-]+\.supabase\.(?:co|in)\b/i);
+  return m ? m[0] : PROJECT_URL;
+}
+export function pickKey(raw: string | undefined): string {
+  const m = (raw ?? '').match(/\b(sb_publishable_[A-Za-z0-9_-]{16,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+  return m ? m[1] : PUBLISHABLE_KEY;
+}
+
+const url = pickUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
+const anonKey = pickKey(import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined);
 
 /** True when the site was built with a Supabase project to sign in to. */
 export const authConfigured = /^https:\/\/.+/.test(url) && anonKey.length > 20;
