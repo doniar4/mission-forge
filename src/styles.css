@@ -4594,3 +4594,342 @@ details.review[open] > summary svg {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- weakest link: what to fix first, without giving away the science ------- */
+.weak-link {
+  order: -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 154, 102, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 154, 102, 0.08);
+  text-align: left;
+  color: var(--ink);
+  transition: background-color 0.2s var(--ease);
+}
+.weak-link:hover,
+.weak-link:focus-visible {
+  background: rgba(255, 154, 102, 0.16);
+}
+.weak-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange-ink);
+}
+.weak-text {
+  grid-column: 1;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.weak-link svg {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--orange-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ==== the menu: a floating panel with its sections as tabs ===================== */
+.mc-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mc-sheet {
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(880px, calc(100% - 32px));
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(7, 11, 24, 0.9);
+  box-shadow: 0 32px 96px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.mc-sheet-head {
+  gap: 16px;
+  padding: 16px 16px 16px 24px;
+}
+.mc-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mc-tabs::-webkit-scrollbar {
+  display: none;
+}
+.mc-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.mc-tabs button:hover {
+  color: var(--ink);
+}
+.mc-tabs button[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.mc-sheet-body {
+  padding: 32px 40px 48px;
+  animation: mc-swap 0.4s var(--ease) both;
+}
+.mc-sheet-title {
+  font-size: clamp(2rem, 3.4vw, 2.75rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.mc-sheet-lede {
+  max-width: 52ch;
+  margin: 12px 0 32px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.mc-sub {
+  margin: 40px 0 16px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+/* how to play: three steps side by side */
+.mc-how {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.mc-how li {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+}
+.mc-how img {
+  width: 100%;
+  height: 120px;
+}
+.mc-how h3 {
+  font-size: 1.0625rem;
+}
+.mc-how p {
+  font-size: 0.8125rem;
+}
+.mc-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-roles li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--role);
+  border-radius: 12px;
+}
+.mc-roles b {
+  font: 600 0.9375rem/1.3 var(--display);
+}
+.mc-roles span {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+.mc-keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+  margin: 0;
+}
+.mc-keys > div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.mc-keys dt {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+}
+.mc-keys dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  font: 600 0.75rem/1 var(--body);
+  color: var(--ink);
+}
+/* team play: who and how on one line, create and join as two cards */
+.mc-sheet-body > .block > p.muted {
+  display: none;
+}
+.mc-sheet .team-entry {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+  align-items: start;
+}
+.mc-sheet .team-entry > .field {
+  margin: 0;
+}
+.mc-sheet .team-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 0;
+}
+.mc-sheet .team-create,
+.mc-sheet .team-join {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01));
+}
+.mc-sheet .team-create h3,
+.mc-sheet .team-join h3 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+.mc-sheet .team-create .field,
+.mc-sheet .team-join .field {
+  margin: 0;
+}
+.mc-sheet .team-create > button,
+.mc-sheet .team-join > button {
+  justify-self: start;
+}
+.mc-sheet .team-entry > .problem {
+  grid-column: 1 / -1;
+}
+/* records */
+.mc-board .mc-rank {
+  width: 32px;
+  font: 600 0.875rem/1 var(--display);
+  color: var(--ink-3);
+}
+.mc-board tbody tr:first-child .mc-rank {
+  color: var(--gold-ink);
+}
+.mc-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  text-align: center;
+}
+.mc-empty svg {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+}
+.mc-empty b {
+  font: 600 1.125rem/1.3 var(--display);
+}
+.mc-empty p {
+  max-width: 40ch;
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+/* the menu bar on the home page */
+.mc-menu button .mc-icon {
+  opacity: 0.8;
+}
+@media (max-width: 900px) {
+  .mc-sheet {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100% - 16px);
+    border-radius: 20px;
+  }
+  .mc-sheet-body {
+    padding: 24px 20px 40px;
+  }
+  .mc-how,
+  .mc-roles,
+  .mc-keys,
+  .mc-sheet .team-entry,
+  .mc-sheet .team-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-tabs button {
+    padding: 8px 12px;
+  }
+  .mc-tabs button .mc-icon {
+    display: none;
+  }
+  .mc-menu button .mc-icon {
+    display: none;
+  }
+}
+
+.mc-sheet .mc-sheet-body > .block {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.mc-sheet .team-actions {
+  padding-top: 0;
+  border-top: 0;
+}
+.mc-sheet .team-actions .primary,
+.mc-sheet .team-actions .secondary {
+  margin-top: 0;
+}
+
+.mc-sheet #team {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}

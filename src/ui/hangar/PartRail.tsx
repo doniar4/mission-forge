@@ -299,7 +299,7 @@ function Deltas({ d }: { d: Delta }) {
   const t = useT();
   const chips: { text: string; good: boolean }[] = [];
   const sign = (x: number) => (x > 0 ? '+' : '−');
-  if (Math.abs(d.science) >= 0.01) chips.push({ text: t(`наука ${sign(d.science)}${t.n(Math.abs(d.science) * 100)}%`, `science ${sign(d.science)}${t.n(Math.abs(d.science) * 100)}%`), good: d.science > 0 });
+  // No science chip: how much science a design returns is found out by flying it.
   if (Math.abs(d.mass) >= 0.5) chips.push({ text: `${sign(d.mass)}${t.n(Math.abs(d.mass))} ${t('кг', 'kg')}`, good: d.mass < 0 });
   if (Math.abs(d.power) >= 0.5) chips.push({ text: `${sign(d.power)}${t.n(Math.abs(d.power))} ${t('Вт', 'W')}`, good: d.power < 0 });
   if (Math.abs(d.cost) >= 0.1) chips.push({ text: `${sign(d.cost)}${t.money(Math.abs(d.cost))}`, good: d.cost < 0 });

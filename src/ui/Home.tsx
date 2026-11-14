@@ -19,6 +19,49 @@ const PLANET = { earth: 'planet_earth', moon: 'planet_moon', mars: 'planet_mars'
 const art = (sc: Scenario) => `${import.meta.env.BASE_URL}thumbs/${sc.sandbox ? 'orbit_geo' : PLANET[sc.body]}.webp`;
 
 type Sheet = 'how' | 'team' | 'records';
+const TABS: { id: Sheet; name: { ru: string; en: string }; lede: { ru: string; en: string } }[] = [
+  {
+    id: 'how',
+    name: { ru: 'Как играть', en: 'How to play' },
+    lede: { ru: 'Три комнаты одной миссии и четыре роли, которые за неё отвечают.', en: 'Three rooms of one mission, and the four roles that answer for it.' },
+  },
+  {
+    id: 'team',
+    name: { ru: 'Командная игра', en: 'Team play' },
+    lede: { ru: 'До трёх человек, каждый на своём устройстве, проектируют одну миссию.', en: 'Up to three people, each on their own device, design one mission.' },
+  },
+  {
+    id: 'records',
+    name: { ru: 'Рекорды', en: 'Records' },
+    lede: { ru: 'Лучшие миссии на этом устройстве. Любую можно открыть и доработать.', en: 'The best missions on this device. Open any of them and improve it.' },
+  },
+];
+
+function MenuIcon({ id }: { id: Sheet }) {
+  return (
+    <svg className="mc-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {id === 'how' && (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4M12 16.6v.2" />
+        </>
+      )}
+      {id === 'team' && (
+        <>
+          <circle cx="9" cy="9" r="3" />
+          <circle cx="17" cy="10" r="2.4" />
+          <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6M14.6 15c2.6-.4 4.9.9 5.6 3.8" />
+        </>
+      )}
+      {id === 'records' && (
+        <>
+          <path d="M8 4h8v5a4 4 0 0 1-8 0z" />
+          <path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 /**
  * Mission control on one screen: the headline and the missions on the left, the chosen
@@ -65,16 +108,13 @@ export function Home() {
           Mission Forge
         </span>
         <nav className="mc-menu" aria-label={t('Меню', 'Menu')}>
-          <button type="button" aria-expanded={sheet === 'how'} onClick={() => setSheet('how')}>
-            {t('Как играть', 'How to play')}
-          </button>
-          <button type="button" aria-expanded={sheet === 'team'} onClick={() => setSheet('team')}>
-            {t('Командная игра', 'Team play')}
-          </button>
-          <button type="button" aria-expanded={sheet === 'records'} onClick={() => setSheet('records')}>
-            {t('Рекорды', 'Records')}
-            {records.length > 0 && <span className="mc-count">{records.length}</span>}
-          </button>
+          {TABS.map((tab) => (
+            <button key={tab.id} type="button" aria-expanded={sheet === tab.id} onClick={() => setSheet(tab.id)}>
+              <MenuIcon id={tab.id} />
+              {t(tab.name)}
+              {tab.id === 'records' && records.length > 0 && <span className="mc-count">{records.length}</span>}
+            </button>
+          ))}
         </nav>
         <LangToggle />
       </header>
@@ -199,21 +239,21 @@ export function Home() {
       </p>
 
       {sheet && (
-        <SideSheet
-          title={sheet === 'how' ? t('Как играть', 'How to play') : sheet === 'team' ? t('Командная игра', 'Team play') : t('Рекорды', 'Records')}
-          onClose={() => setSheet(null)}
-        >
+        <MenuPanel tab={sheet} onTab={setSheet} onClose={() => setSheet(null)}>
           {sheet === 'how' && <HowToPlay />}
           {sheet === 'team' && <TeamEntry />}
           {sheet === 'records' && <Records onOpen={() => setSheet(null)} />}
-        </SideSheet>
+        </MenuPanel>
       )}
     </div>
   );
 }
 
-/** A panel that slides in from the right over the scene; Esc or the backdrop closes it. */
-function SideSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/**
+ * The menu: one floating panel over the scene with its sections as tabs, so moving between
+ * them never closes it. Esc or a click on the dimmed scene closes it; ←/→ switch tabs.
+ */
+function MenuPanel({ tab, onTab, onClose, children }: { tab: Sheet; onTab: (t: Sheet) => void; onClose: () => void; children: ReactNode }) {
   const t = useT();
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -226,19 +266,48 @@ function SideSheet({ title, onClose, children }: { title: string; onClose: () =>
       before?.focus();
     };
   }, [onClose]);
+  const current = TABS.find((x) => x.id === tab)!;
+  const onTabKey = (e: ReactKeyboardEvent) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = TABS.findIndex((x) => x.id === tab);
+    const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
+    onTab(next.id);
+    (document.getElementById(`mc-tab-${next.id}`) as HTMLElement | null)?.focus();
+  };
   return (
     <div className="mc-sheet-wrap">
-      <button type="button" className="mc-backdrop" aria-label={t('Закрыть', 'Close')} onClick={onClose} />
-      <div className="mc-sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={panel}>
+      <button type="button" className="mc-backdrop" aria-label={t('Закрыть меню', 'Close the menu')} onClick={onClose} />
+      <div className="mc-sheet" role="dialog" aria-modal="true" aria-labelledby={`mc-tab-${tab}`} tabIndex={-1} ref={panel}>
         <div className="mc-sheet-head">
-          <h2>{title}</h2>
+          <div className="mc-tabs" role="tablist" aria-label={t('Разделы', 'Sections')} onKeyDown={onTabKey}>
+            {TABS.map((x) => (
+              <button
+                key={x.id}
+                id={`mc-tab-${x.id}`}
+                type="button"
+                role="tab"
+                aria-selected={x.id === tab}
+                aria-controls="mc-tab-panel"
+                tabIndex={x.id === tab ? 0 : -1}
+                onClick={() => onTab(x.id)}
+              >
+                <MenuIcon id={x.id} />
+                {t(x.name)}
+              </button>
+            ))}
+          </div>
           <button type="button" className="mc-close" aria-label={t('Закрыть', 'Close')} onClick={onClose}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </div>
-        <div className="mc-sheet-body">{children}</div>
+        <div className="mc-sheet-body" id="mc-tab-panel" role="tabpanel" aria-labelledby={`mc-tab-${tab}`} key={tab}>
+          <h2 className="mc-sheet-title">{t(current.name)}</h2>
+          <p className="mc-sheet-lede">{t(current.lede)}</p>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -278,7 +347,7 @@ function HowToPlay() {
         ))}
       </ol>
       <h3 className="mc-sub">{t('Четыре роли', 'Four roles')}</h3>
-      <ul className="roles">
+      <ul className="mc-roles">
         {(Object.keys(ROLES) as Role[]).map((r) => (
           <li key={r} data-role={r}>
             <b>{t(ROLES[r].name)}</b>
@@ -286,6 +355,31 @@ function HowToPlay() {
           </li>
         ))}
       </ul>
+      <h3 className="mc-sub">{t('Управление', 'Controls')}</h3>
+      <dl className="mc-keys">
+        <div>
+          <dt>
+            <kbd>↑</kbd> <kbd>↓</kbd>
+          </dt>
+          <dd>{t('выбрать миссию на главной', 'pick a mission on the home screen')}</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>←</kbd> <kbd>→</kbd>
+          </dt>
+          <dd>{t('листать детали в ангаре', 'browse parts in the hangar')}</dd>
+        </div>
+        <div>
+          <dt>
+            <kbd>Esc</kbd>
+          </dt>
+          <dd>{t('закрыть меню и окна', 'close the menu and panels')}</dd>
+        </div>
+        <div>
+          <dt>{t('Мышь', 'Mouse')}</dt>
+          <dd>{t('тянуть — повернуть аппарат, колесо — приблизить', 'drag to turn the spacecraft, scroll to zoom')}</dd>
+        </div>
+      </dl>
     </>
   );
 }
@@ -295,11 +389,24 @@ function Records({ onOpen }: { onOpen: () => void }) {
   const records = useStore((s) => s.records);
   const loadShared = useStore((s) => s.loadShared);
   if (records.length === 0)
-    return <p className="muted">{t('Пока пусто. Завершите миссию и сохраните результат — он появится здесь.', 'Nothing here yet. Finish a mission and save the result to see it here.')}</p>;
+    return (
+      <div className="mc-empty">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="26" r="9" />
+          <ellipse cx="24" cy="26" rx="20" ry="7" transform="rotate(-24 24 26)" />
+        </svg>
+        <b>{t('Пока ни одного полёта', 'No flights yet')}</b>
+        <p>{t('Завершите миссию и сохраните результат на экране разбора — он появится здесь.', 'Finish a mission and save the result on the debrief screen to see it here.')}</p>
+        <button type="button" className="secondary" onClick={onOpen}>
+          {t('Выбрать миссию', 'Choose a mission')}
+        </button>
+      </div>
+    );
   return (
-    <table className="board">
+    <table className="board mc-board">
       <thead>
         <tr>
+          <th className="num">#</th>
           <th>{t('Команда', 'Team')}</th>
           <th>{t('Миссия', 'Mission')}</th>
           <th className="num">{t('Счёт', 'Score')}</th>
@@ -307,8 +414,9 @@ function Records({ onOpen }: { onOpen: () => void }) {
         </tr>
       </thead>
       <tbody>
-        {records.slice(0, 12).map((r) => (
+        {records.slice(0, 12).map((r, i) => (
           <tr key={r.id}>
+            <td className="num mc-rank">{i + 1}</td>
             <td>{r.name}</td>
             <td>
               {t(scenarioById(r.scenarioId).name)}

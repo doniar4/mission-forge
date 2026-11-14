@@ -255,9 +255,10 @@ export function goalsFor(sc: Scenario, ev: Evaluation): Goal[] {
       ru: `${ev.time.devMonths} из ${ev.time.deadline} мес.`,
       en: `${ev.time.devMonths} of ${ev.time.deadline} months`,
     }),
-    g('science', 'target', { ru: 'Прогноз науки не ниже цели заказчика', en: 'Forecast science reaches the customer’s target' }, ev.science.projected >= 1, {
-      ru: `Сейчас ${pct(ev.science.projected)}`,
-      en: `Now ${pct(ev.science.projected)}`,
+    // Not the science forecast itself: the outcome is found out by flying.
+    g('science', 'orbit', { ru: 'Орбита подходит задаче не меньше чем на 90%', en: 'The orbit suits the objective at least 90%' }, ev.science.orbitFit >= 0.9, {
+      ru: `Сейчас ${pct(ev.science.orbitFit)}`,
+      en: `Now ${pct(ev.science.orbitFit)}`,
     }),
     g('science', 'coverage', { ru: 'Все главные измерения закрыты приборами', en: 'Every major measurement is covered' }, covered, {
       ru: covered ? 'Закрыты' : 'Есть незакрытые',

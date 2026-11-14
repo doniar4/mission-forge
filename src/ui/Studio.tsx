@@ -468,12 +468,12 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
 }
 
 /**
- * Why the science forecast falls short, in one line: the factor that cuts it the most.
- * Mirrors the forecast in evaluate(): quality × orbit fit × power duty × data returned × years.
+ * The weakest link of the design, in one line, from what the gauges and cards already show:
+ * the factor that would cut the science most. The science outcome itself is never shown before
+ * the flight — finding it out is the point of flying.
  */
-function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L; section: SectionId } | null {
-  if (ev.science.projected >= 1) return null;
-  if (!design.orbit) return { text: { ru: 'Сначала выберите орбиту — без неё прогноза нет.', en: 'Choose an orbit first — no forecast without one.' }, section: 'orbit' };
+function weakestLink(ev: Evaluation, design: Design, sc: Scenario): { text: L; section: SectionId } | null {
+  if (!design.orbit) return { text: { ru: 'Сначала выберите орбиту — от неё зависит всё остальное.', en: 'Choose an orbit first — everything else depends on it.' }, section: 'orbit' };
   if (design.instruments.length === 0) return { text: { ru: 'На борту нет приборов — измерять нечем.', en: 'No instruments on board — nothing to measure with.' }, section: 'payload' };
   const pct = (x: number) => Math.round(x * 100);
   const fit = ev.science.orbitFit;
@@ -498,7 +498,7 @@ function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L
       k: quality,
       text: blurry
         ? { ru: 'Аппарат дрожит — снимки смазаны. Нужна ориентация точнее.', en: 'The spacecraft wobbles and blurs the data. It needs finer pointing.' }
-        : { ru: `Приборы закрывают задачу на ${pct(quality)}%. Нужны приборы лучше или ещё один.`, en: `The instruments cover ${pct(quality)}% of the goal. Better or more instruments needed.` },
+        : { ru: 'Приборы видят задачу хуже, чем нужно заказчику: класс выше или ещё один прибор.', en: 'The instruments see less than the customer needs: a higher class or one more instrument.' },
       section: blurry ? 'platform' : 'payload',
     },
     {
@@ -518,9 +518,18 @@ function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L
 
 function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
-  const reason = forecastReason(ev, design, sc);
+  const weak = weakestLink(ev, design, sc);
   return (
     <div className="budgets">
+      {weak && (
+        <button type="button" className="weak-link" onClick={() => onGo(weak.section)}>
+          <span className="weak-label">{t('Слабое место', 'Weakest link')}</span>
+          <span className="weak-text">{t(weak.text)}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
       <Gauge
         label={t('Масса', 'Mass')}
         used={ev.mass.wet}
@@ -563,24 +572,6 @@ function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc:
         hint={t('нужно на разработку / есть до запуска', 'needed to build / left until launch')}
         fix={t('Меньше приборов или испытания короче.', 'Fewer instruments or shorter testing.')}
       />
-      <div className="forecast" data-state={ev.science.projected >= 1 ? 'ok' : ev.science.projected >= 0.5 ? 'tight' : 'over'}>
-        <div className="gauge-row">
-          <span className="gauge-label">{t('Прогноз науки', 'Science forecast')}</span>
-          <span className="gauge-value">{t.pct(ev.science.projected)}</span>
-        </div>
-        <div className="gauge-track forecast-track" role="img" aria-label={t(`Прогноз науки: ${t.pct(ev.science.projected)} от цели`, `Science forecast: ${t.pct(ev.science.projected)} of target`)}>
-          <div className="gauge-fill" style={{ width: `${Math.min(100, (ev.science.projected / 1.4) * 100)}%` }} />
-        </div>
-        <p className="gauge-hint">{t('отметка — цель заказчика', 'the tick is the customer’s target')}</p>
-        {reason && (
-          <button type="button" className="forecast-why" onClick={() => onGo(reason.section)}>
-            <span>{t(reason.text)}</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
-      </div>
     </div>
   );
 }
