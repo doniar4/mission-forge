@@ -140,6 +140,21 @@ export function LostBanner() {
           {t('Переподключиться', 'Reconnect')}
         </button>
       )}
+      {team.state && team.state.phase !== 'lobby' && (
+        <button
+          type="button"
+          className="link"
+          onClick={() => {
+            // Take the team's design home and carry on alone, instead of waiting for a room that is gone.
+            const st = team.state!;
+            useStore.setState((s) => ({ designs: { ...s.designs, [st.scenarioId]: st.design }, scenarioId: st.scenarioId, difficulty: st.difficulty }));
+            leaveRoom();
+            useStore.setState({ screen: 'studio' });
+          }}
+        >
+          {t('Продолжить одному с этим проектом', 'Carry on alone with this design')}
+        </button>
+      )}
       <button type="button" className="link" onClick={() => leaveRoom()}>
         {t('Выйти из комнаты', 'Leave the room')}
       </button>
@@ -395,6 +410,7 @@ export function TeamPanel({ goals, blockers }: { goals: Goal[]; blockers: number
   const everyone = owners(st);
   const iAmReady = !!st.ready[team.myId];
   const readyCount = everyone.filter((id) => st.ready[id]).length;
+  const waiting = everyone.filter((id) => !st.ready[id]).map((id) => (id === team.myId ? t('вас', 'you') : memberName(st, id)));
   const canSign = mine.length > 0 && !team.lost;
 
   return (
@@ -465,8 +481,8 @@ export function TeamPanel({ goals, blockers }: { goals: Goal[]; blockers: number
           {blockers > 0
             ? t(`Пока есть обязательные замечания комиссии: ${blockers}.`, `The review board still has required findings: ${blockers}.`)
             : t(
-                `Подтвердили ${readyCount} из ${everyone.length}. Миссия стартует, когда подтвердят все; любое изменение проекта снимает подтверждения.`,
-                `${readyCount} of ${everyone.length} signed off. The mission launches when all have; any change to the design clears the sign-offs.`,
+                `Подтвердили ${readyCount} из ${everyone.length}${waiting.length ? `, ждём: ${waiting.join(', ')}` : ''}. Любое изменение проекта снимает подтверждения; роли ушедшего игрока переходят к остальным.`,
+                `${readyCount} of ${everyone.length} signed off${waiting.length ? `, waiting for ${waiting.join(', ')}` : ''}. Any change to the design clears the sign-offs; a leaver’s roles pass to the others.`,
               )}
         </p>
       </div>

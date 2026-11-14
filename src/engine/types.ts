@@ -151,7 +151,11 @@ export interface Vehicle {
   name: L;
   desc: L;
   leoKg: number;
+  /** Price of the launch, $M; for a rideshare, the price of the first `baseKg`. */
   cost: number;
+  /** Rideshare only: kilograms included in `cost`, and the price of each kilogram beyond, $M. */
+  baseKg?: number;
+  costPerKg?: number;
   reliability: number;
   reach: OrbitId[];
   leadMonths: number;

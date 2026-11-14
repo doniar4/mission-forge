@@ -15,6 +15,7 @@ import {
   VEHICLES,
   byId,
 } from '../../engine/catalog';
+import { launchPrice } from '../../engine/evaluate';
 import { scenarioOrbits } from '../../engine/scenarios';
 import type { Design, Evaluation, L, Measure, Role, Scenario } from '../../engine/types';
 import type { Translator } from '../../i18n';
@@ -414,7 +415,8 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
                   value: reach ? kg(v.leoKg * (orbit?.capFactor ?? 1)) : '—',
                 },
                 { label: t('Надёжность', 'Reliability'), value: t.pct(v.reliability) },
-                { label: t('Цена', 'Cost'), value: t.money(v.cost) },
+                // A rideshare is priced by the kilogram: show what this spacecraft would pay.
+                { label: v.costPerKg ? t('Цена за ваш аппарат', 'Price for yours') : t('Цена', 'Cost'), value: t.money(launchPrice(v, ev.mass.wet)) },
               ],
               warning: reach ? undefined : t('Не долетит до этой орбиты', 'Cannot reach this orbit'),
             };
