@@ -127,11 +127,21 @@ export function take(map: Map<string, THREE.Object3D>, name: string): THREE.Obje
   return src.clone();
 }
 
+let webgl: boolean | null = null;
+
+/**
+ * Asked once per page: every probe opens a real WebGL context, and browsers allow only a
+ * handful at a time, so the probe releases its context straight away.
+ */
 export function webglAvailable(): boolean {
+  if (webgl !== null) return webgl;
   try {
     const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    const gl = c.getContext('webgl2') ?? c.getContext('webgl');
+    webgl = !!gl;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
-    return false;
+    webgl = false;
   }
+  return webgl;
 }

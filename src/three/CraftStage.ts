@@ -149,5 +149,7 @@ export class CraftStage {
     this.controls.dispose();
     this.scene.environment?.dispose();
     this.renderer.dispose();
+    // Hand the context back now rather than when the canvas is collected: browsers cap live contexts.
+    this.renderer.forceContextLoss();
   }
 }

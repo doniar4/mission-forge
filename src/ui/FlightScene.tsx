@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Director } from '../flight/director';
 import { useT } from '../i18n';
 import type { FlightStage, FlightView } from '../three/FlightStage';
+
+let scenes = 0;
 
 /**
  * The 3D flight scene. The 3D code and models load on demand; if WebGL is missing, or the
@@ -25,6 +27,9 @@ export function FlightScene({
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>(() =>
     window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'failed' : 'loading',
   );
+  // A disposed scene gives its WebGL context back, which leaves its canvas unusable: a new
+  // flight gets a fresh canvas.
+  const canvasKey = useMemo(() => ++scenes, [director]);
   const live = useRef({ onStage, view });
   live.current = { onStage, view };
 
@@ -58,7 +63,7 @@ export function FlightScene({
       {state === 'failed' ? (
         <div className="viewport-fallback">{fallback}</div>
       ) : (
-        <canvas ref={canvas} role="img" aria-label={t('Трёхмерная сцена полёта. Изображение можно вращать.', '3D view of the flight. Drag to look around.')} />
+        <canvas key={canvasKey} ref={canvas} role="img" aria-label={t('Трёхмерная сцена полёта. Изображение можно вращать.', '3D view of the flight. Drag to look around.')} />
       )}
       {state === 'loading' && <span className="viewport-wait">{t('Готовим стартовый комплекс…', 'Preparing the launch complex…')}</span>}
       {children}
