@@ -8,7 +8,7 @@ Mission Forge — образовательная игра: игрок проек
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173
+npm run dev     # http://localhost:5173 и адрес в локальной сети для командной игры
 npm test        # тесты ядра и баланса — обязательно перед коммитом
 npm run build   # проверка типов и сборка
 ```
