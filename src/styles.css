@@ -5046,6 +5046,9 @@ kbd {
     padding: 20px;
   }
   .crisis-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* ---- forecast range: a band, not a number --------------------------------- */
 .forecast.range .forecast-track::after {
   display: none;
