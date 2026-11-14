@@ -437,7 +437,13 @@ def compose(stage, name):
 
 def names():
     from itertools import chain
-    insts = ['cam_wide', 'cam_hires', 'thermal_ir', 'multispec', 'sar', 'altimeter', 'sounder', 'spectrometer', 'neutron', 'magnetometer', 'particles', 'coronagraph']
+    insts = [
+        'cam_wide', 'cam_mid', 'cam_hires', 'thermal_micro', 'thermal_ir', 'thermal_cryo',
+        'multispec_lite', 'multispec', 'hyperspec', 'scatterometer', 'sar_compact', 'sar',
+        'alt_lidar', 'altimeter', 'alt_pro', 'sounder_lite', 'sounder', 'sounder_pro',
+        'neutron', 'spectrometer', 'gamma_suite', 'mag_chip', 'magnetometer', 'mag_pro',
+        'particles_lite', 'particles', 'plasma_suite', 'solar_xray', 'euv_imager', 'coronagraph',
+    ]
     return list(chain(
         ['inst_' + i for i in insts],
         ['power_' + p for p in ('body', 'small', 'medium', 'large', 'xl', 'rtg')],

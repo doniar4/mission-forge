@@ -11,6 +11,7 @@ import {
   PROPULSION,
   STRUCTURES,
   TESTING,
+  TIERS,
   VEHICLES,
   byId,
 } from '../../engine/catalog';
@@ -103,6 +104,8 @@ export interface Card {
   thumb: string;
   /** Portrait art (rockets). */
   tall?: boolean;
+  /** Instrument class, 1 entry to 3 professional. */
+  tier?: { level: 1 | 2 | 3; name: string };
   stats: { label: string; value: string }[];
   /** Tags such as measurements; `good` marks what the mission needs. */
   tags?: { text: string; good?: boolean }[];
@@ -208,8 +211,9 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
           multi: true,
           title: t('Научные приборы', 'Science instruments'),
           hint: t('Можно взять несколько. Первыми идут те, что нужны задаче.', 'Take as many as you like. The ones this objective needs come first.'),
-          cards: allowed([...INSTRUMENTS].sort((a, b) => useful(b) - useful(a))).map((i) => ({
+          cards: allowed([...INSTRUMENTS].sort((a, b) => useful(b) - useful(a) || a.tier - b.tier)).map((i) => ({
             ...base(i.id, i.name, i.desc, `inst_${i.id}`),
+            tier: { level: i.tier, name: t(TIERS[i.tier]) },
             stats: [
               { label: t('Масса', 'Mass'), value: kg(i.mass) },
               { label: t('Мощность', 'Power'), value: w(i.power) },

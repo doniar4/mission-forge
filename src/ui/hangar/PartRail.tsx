@@ -177,6 +177,14 @@ export function PartRail({
                 </span>
               </span>
               <span className="part-body">
+                {c.tier && (
+                  <span className="part-tier" data-tier={c.tier.level}>
+                    <i aria-hidden="true" />
+                    <i aria-hidden="true" />
+                    <i aria-hidden="true" />
+                    {c.tier.name}
+                  </span>
+                )}
                 <span className="part-name">{c.name}</span>
                 {d && !on && <Deltas d={d} />}
                 {d && on && multi && (

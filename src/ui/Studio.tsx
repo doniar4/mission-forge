@@ -386,7 +386,7 @@ function Budgets({ ev }: { ev: Evaluation }) {
     <div className="budgets">
       <Gauge label={t('Масса', 'Mass')} used={ev.mass.wet} limit={ev.mass.capacity} unit={t('кг', 'kg')} hint={t('с топливом / сколько довезёт ракета', 'fuelled / what the rocket can carry')} />
       <Gauge label={t('Энергия', 'Power')} used={ev.power.load} limit={ev.power.average} unit={t('Вт', 'W')} hint={t('потребление / средняя выработка', 'demand / average supply')} />
-      <Gauge label={t('Данные', 'Data')} used={ev.data.generated} limit={ev.data.downlink} unit={t('ГБ/сут', 'GB/day')} digits={1} hint={t('создают приборы / пропускает связь', 'produced / carried by the link')} />
+      <Gauge label={t('Данные', 'Data')} used={ev.data.generated} limit={ev.data.downlink} unit={t('ГБ/сут', 'GB/day')} digits={1} twoSided hint={t('создают приборы / пропускает связь', 'produced / carried by the link')} />
       <Gauge label={t('Бюджет', 'Budget')} used={ev.cost.total} limit={ev.cost.budget} unit={t('млн $', '$M')} hint={t('стоимость миссии / бюджет', 'mission cost / budget')} />
       <Gauge label={t('Срок разработки', 'Development')} used={ev.time.devMonths} limit={ev.time.deadline} unit={t('мес.', 'mo')} />
       <div className="forecast" data-state={ev.science.projected >= 1 ? 'ok' : ev.science.projected >= 0.5 ? 'tight' : 'over'}>

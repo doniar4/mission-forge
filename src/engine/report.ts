@@ -16,11 +16,12 @@ export function buildReport(
     lines.push({ id, label, points: Math.round(clamp(share) * max), max });
 
   const flew = !sim.launchFailed;
-  // Meeting the target earns 80% of the science score; the rest rewards going beyond it (up to 140%).
-  const scienceShare = sim.sciencePct <= 1 ? 0.8 * sim.sciencePct : 0.8 + 0.2 * clamp((sim.sciencePct - 1) / 0.4);
+  // Meeting the target earns 70% of the science score; the rest rewards going beyond it (up to 140%).
+  const scienceShare = sim.sciencePct <= 1 ? 0.7 * sim.sciencePct : 0.7 + 0.3 * clamp((sim.sciencePct - 1) / 0.4);
   line('science', { ru: 'Научный результат', en: 'Science return' }, scienceShare, 500);
-  // Saving up to 30% of the budget earns the full efficiency score.
-  line('budget', { ru: 'Экономия бюджета', en: 'Budget efficiency' }, flew ? ev.cost.margin / 0.3 : 0, 175);
+  // Saving up to 30% of the budget earns the full efficiency score, but only for the science that was
+  // delivered: money left over from a mission that missed its target is not efficiency.
+  line('budget', { ru: 'Экономия бюджета', en: 'Budget efficiency' }, flew ? (ev.cost.margin / 0.3) * clamp(sim.sciencePct) : 0, 175);
   line('data', { ru: 'Доставка данных', en: 'Data delivered' }, sim.dataGenerated > 0 ? sim.dataReturned / sim.dataGenerated : 0, 75);
   line('survival', { ru: 'Живучесть аппарата', en: 'Spacecraft survival' }, sim.monthsOperated / sim.plannedMonths, 75);
   line('margins', { ru: 'Инженерные запасы', en: 'Engineering margins' }, (clamp(ev.mass.margin / 0.1) + clamp(ev.power.margin / 0.15)) / 2, 75);

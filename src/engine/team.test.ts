@@ -146,7 +146,7 @@ describe('personal goals', () => {
   it('conflict: more science costs the budget reserve', () => {
     const sc = scenarioById('firewatch');
     const lean = { ...emptyDesign(sc), ...solve(room()).design, instruments: ['thermal_ir'], battery: 'b100' };
-    const rich = { ...lean, instruments: ['thermal_ir', 'cam_wide', 'multispec'], power: 'medium' };
+    const rich = { ...lean, instruments: ['thermal_cryo', 'multispec', 'cam_mid'], power: 'medium', adcs: 'precise' };
     const a = goalsFor(sc, evaluate(lean, sc, 'engineer'));
     const b = goalsFor(sc, evaluate(rich, sc, 'engineer'));
     const met = (g: ReturnType<typeof goalsFor>, id: string) => g.find((x) => x.id === id)!.met;

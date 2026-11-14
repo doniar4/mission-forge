@@ -11,16 +11,36 @@ import { take, type Assets } from './assets';
 /** Room each instrument needs on the deck, metres (width, height). */
 const FOOT: Record<string, [number, number]> = {
   cam_wide: [0.26, 0.26],
+  cam_mid: [0.32, 0.3],
   cam_hires: [0.72, 0.56],
+  thermal_micro: [0.16, 0.14],
   thermal_ir: [0.62, 0.42],
+  thermal_cryo: [0.92, 0.64],
+  multispec_lite: [0.24, 0.22],
   multispec: [0.48, 0.42],
+  hyperspec: [0.76, 0.5],
+  scatterometer: [0.92, 0.26],
+  alt_lidar: [0.24, 0.18],
   altimeter: [1.0, 0.92],
+  alt_pro: [1.3, 1.02],
+  sounder_lite: [0.28, 0.22],
   sounder: [0.44, 0.38],
-  spectrometer: [0.4, 0.42],
+  sounder_pro: [0.88, 0.62],
   neutron: [0.28, 0.26],
+  spectrometer: [0.4, 0.42],
+  mag_chip: [0.14, 0.11],
+  particles_lite: [0.16, 0.14],
   particles: [0.4, 0.28],
+  plasma_suite: [0.46, 0.38],
+  solar_xray: [0.18, 0.16],
+  euv_imager: [0.32, 0.28],
   coronagraph: [0.3, 0.3],
 };
+
+/** Radar panels take a full row of the deck of their own: [row height, panel width]. */
+const PANELS: Record<string, number> = { sar: 1.0, sar_compact: 0.6 };
+/** Instruments that stand out from the bus on a boom, away from its electronics. */
+const BOOMS = ['magnetometer', 'mag_pro', 'gamma_suite'];
 
 /** Panels per wing, panel length along the wing and panel width, metres. */
 const WINGS: Record<string, [number, number, number]> = {
@@ -80,8 +100,9 @@ export function buildCraft(design: Design, dryKg: number, assets: Assets): Craft
     row.h = Math.max(row.h, it.h);
     row.items.push(it);
   }
-  const hasSar = design.instruments.includes('sar');
-  const stackH = rows.reduce((a, r) => a + r.h, 0) + gap * Math.max(0, rows.length - 1) + (hasSar ? 1.0 + (rows.length ? gap : 0) : 0);
+  const panels = design.instruments.filter((id) => PANELS[id]);
+  const panelH = panels.reduce((a, id) => a + PANELS[id] + gap, 0);
+  const stackH = rows.reduce((a, r) => a + r.h, 0) + gap * Math.max(0, rows.length - 1) + (panels.length ? panelH - (rows.length ? 0 : gap) : 0);
   const w = Math.max(s, ...rows.map((r) => r.w + 0.1));
   const h = Math.max(s * 1.12, stackH + 0.1);
   const d = s;
@@ -107,16 +128,26 @@ export function buildCraft(design: Design, dryKg: number, assets: Assets): Craft
     }
     y -= row.h + gap;
   }
-  if (hasSar) {
-    const sar = add('inst:sar', kit('inst_sar'));
-    sar.rotation.x = Math.PI / 2;
-    sar.position.set(0, y - 0.5, d / 2);
+  for (const id of panels) {
+    const panel = add(`inst:${id}`, kit(`inst_${id}`));
+    panel.rotation.x = Math.PI / 2;
+    panel.position.set(0, y - PANELS[id] / 2, d / 2);
+    y -= PANELS[id] + gap;
   }
-  if (design.instruments.includes('magnetometer')) {
-    const boom = add('inst:magnetometer', kit('inst_magnetometer'));
-    boom.position.set(-w / 2, h / 2, -d / 2);
-    boom.quaternion.setFromUnitVectors(UP, new THREE.Vector3(-0.55, 0.62, -0.55).normalize());
-  }
+  // Booms take the free corners of the bus, one each.
+  const corners: [number, number, number][] = [
+    [-1, 1, -1],
+    [1, -1, -1],
+    [-1, -1, -1],
+  ];
+  design.instruments
+    .filter((id) => BOOMS.includes(id))
+    .forEach((id, i) => {
+      const [cx, cy, cz] = corners[i % corners.length];
+      const boom = add(`inst:${id}`, kit(`inst_${id}`));
+      boom.position.set((cx * w) / 2, (cy * h) / 2, (cz * d) / 2);
+      boom.quaternion.setFromUnitVectors(UP, new THREE.Vector3(cx * 0.55, cy * 0.62, cz * 0.55).normalize());
+    });
 
   // ---- power ----------------------------------------------------------------
   const hinges: { root: THREE.Group; track: THREE.Group; first: THREE.Group; rest: THREE.Group[]; side: 1 | -1 }[] = [];

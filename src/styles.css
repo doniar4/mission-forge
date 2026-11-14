@@ -1414,6 +1414,30 @@ select:focus {
 .part-name {
   font: 600 1rem/1.25 var(--display);
 }
+.part-tier {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.part-tier i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(160, 180, 230, 0.22);
+}
+.part-tier i:last-of-type {
+  margin-right: 4px;
+}
+.part-tier[data-tier='1'] i:nth-child(1),
+.part-tier[data-tier='2'] i:nth-child(-n + 2),
+.part-tier[data-tier='3'] i {
+  background: var(--gold);
+}
 .part-state {
   font-size: 0.75rem;
   font-weight: 600;
@@ -1680,6 +1704,10 @@ select:focus {
 .gauge-delta[data-good='true'] {
   background: var(--green-wash);
   color: var(--green);
+}
+.gauge-delta[data-good='neutral'] {
+  background: rgba(160, 180, 230, 0.12);
+  color: var(--ink-2);
 }
 @keyframes pop {
   from {
