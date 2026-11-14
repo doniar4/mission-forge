@@ -4,7 +4,7 @@ import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
 import { goalsFor, memberName, rolesOf } from '../engine/team';
-import type { Check, Design, Evaluation, Measure, Scenario } from '../engine/types';
+import type { Check, Design, Evaluation, L, Measure, Scenario } from '../engine/types';
 import { useT } from '../i18n';
 import { shareLink, useDesign, useStore } from '../store';
 import type { Backdrop } from '../three/CraftStage';
@@ -53,6 +53,7 @@ export function Studio() {
   const [groupIx, setGroupIx] = useState(0);
   const [hover, setHover] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [jump, setJump] = useState(0);
   // Free look: the panels step aside and the spacecraft can be turned and zoomed at will.
   const [inspect, setInspect] = useState(false);
   useEffect(() => {
@@ -76,7 +77,14 @@ export function Studio() {
     setGroupIx(s === 'payload' ? 1 : 0);
     setHover(null);
     setInspect(false);
+    setJump((n) => n + 1);
   };
+  // On a narrow screen the page scrolls: bring the section that was just opened into view,
+  // otherwise a tab click from the bottom of the page seems to do nothing. An instant jump:
+  // a smooth scroll gets cancelled when the part rail re-centres itself.
+  useEffect(() => {
+    if (jump > 0 && !wide) document.querySelector('.dock')?.scrollIntoView({ block: 'start' });
+  }, [jump]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // What each card would do to the mission, against the design as it stands.
   const cardDeltas = useMemo(() => {
@@ -163,7 +171,21 @@ export function Studio() {
               const blocked = list.some((c) => c.level === 'blocker');
               return (
                 <li key={s.id}>
-                  <button type="button" data-role={s.role} aria-current={section === s.id ? 'step' : undefined} onClick={() => go(s.id)}>
+                  <button
+                    type="button"
+                    data-role={s.role}
+                    aria-current={section === s.id ? 'step' : undefined}
+                    title={
+                      list.length > 0
+                        ? blocked
+                          ? t(`Замечаний комиссии: ${list.length}. Без исправления не запустят.`, `${list.length} review findings. Must be fixed before launch.`)
+                          : t(`Рисков: ${list.length}. Запустить можно, но они проявятся в полёте.`, `${list.length} risks. You can fly, but they will show up in space.`)
+                        : s.id !== 'brief'
+                          ? t('Замечаний нет', 'No findings')
+                          : undefined
+                    }
+                    onClick={() => go(s.id)}
+                  >
                     <span className="step-no">{String(i + 1).padStart(2, '0')}</span>
                     <span className="step-name">{t(s.name)}</span>
                     {list.length > 0 ? (
@@ -245,7 +267,7 @@ export function Studio() {
 
       <aside className="hangar-left glass" aria-label={t('Ресурсы миссии', 'Mission resources')}>
         <h2 className="panel-title">{t('Ресурсы', 'Resources')}</h2>
-        <Budgets ev={ev} />
+        <Budgets ev={ev} design={design} sc={sc} onGo={go} />
       </aside>
 
       <aside className="hangar-right" aria-label={t('Комиссия и запуск', 'Review and launch')}>
@@ -305,9 +327,9 @@ export function Studio() {
                 ))}
               </div>
             )}
-            {next && section !== 'brief' && (
-              <button type="button" className="secondary small" onClick={() => go(next.id)}>
-                {t(`Дальше: ${next.name.ru}`, `Next: ${next.name.en}`)}
+            {next && (
+              <button type="button" className={section === 'brief' ? 'primary small' : 'secondary small'} onClick={() => go(next.id)}>
+                {section === 'brief' ? t('Начать сборку', 'Start building') : t(`Дальше: ${next.name.ru}`, `Next: ${next.name.en}`)}
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M9 5l7 7-7 7" />
                 </svg>
@@ -448,6 +470,13 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
             : t('Проект готов к запуску', 'The design is ready to fly')}
       </b>
       <span className="coach-why">{next ? t(next.why) : t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but will show up in space.')}</span>
+      {checks.length > 0 && (
+        <span className="coach-legend">
+          <i data-level="blocker" aria-hidden="true" /> {t('обязательно исправить', 'must fix')}
+          <i data-level="warn" aria-hidden="true" /> {t('риск', 'risk')}
+          <span> · {t('цифра на вкладке — сколько там замечаний', 'the number on a tab counts its findings')}</span>
+        </span>
+      )}
       {where && (
         <button type="button" className="ghost small" onClick={() => onGo(where.id)}>
           {t(`К разделу «${where.name.ru}»`, `Go to ${where.name.en}`)}
@@ -460,8 +489,58 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
   );
 }
 
-function Budgets({ ev }: { ev: Evaluation }) {
+/**
+ * Why the science forecast falls short, in one line: the factor that cuts it the most.
+ * Mirrors the forecast in evaluate(): quality × orbit fit × power duty × data returned × years.
+ */
+function forecastReason(ev: Evaluation, design: Design, sc: Scenario): { text: L; section: SectionId } | null {
+  if (ev.science.projected >= 1) return null;
+  if (!design.orbit) return { text: { ru: 'Сначала выберите орбиту — без неё прогноза нет.', en: 'Choose an orbit first — no forecast without one.' }, section: 'orbit' };
+  if (design.instruments.length === 0) return { text: { ru: 'На борту нет приборов — измерять нечем.', en: 'No instruments on board — nothing to measure with.' }, section: 'payload' };
+  const pct = (x: number) => Math.round(x * 100);
+  const fit = ev.science.orbitFit;
+  // 0.65 is the science quality a mission is expected to hold (TARGET_QUALITY in evaluate.ts).
+  const quality = fit > 0 ? Math.min(1, ev.science.ratePerYear / (100 * fit) / 0.65) : 0;
+  const power = ev.power.instLoad > 0 ? Math.min(1, Math.max(0, (ev.power.average - ev.power.busLoad) / ev.power.instLoad)) : 1;
+  const data = ev.data.returnFraction;
+  const years = Math.min(1, ev.time.effectiveYears / sc.targetYears);
+  const blurry = ev.checks.some((c) => c.id === 'pointing_inst');
+  const factors: { k: number; text: L; section: SectionId }[] = [
+    {
+      k: data,
+      text: { ru: `До Земли дойдёт только ${pct(data)}% данных: канал связи узкий.`, en: `Only ${pct(data)}% of the data will reach Earth: the link is too narrow.` },
+      section: 'comms',
+    },
+    {
+      k: power,
+      text: { ru: `Энергии хватит приборам лишь на ${pct(power)}% времени.`, en: `Instruments get power only ${pct(power)}% of the time.` },
+      section: 'power',
+    },
+    {
+      k: quality,
+      text: blurry
+        ? { ru: 'Аппарат дрожит — снимки смазаны. Нужна ориентация точнее.', en: 'The spacecraft wobbles and blurs the data. It needs finer pointing.' }
+        : { ru: `Приборы закрывают задачу на ${pct(quality)}%. Нужны приборы лучше или ещё один.`, en: `The instruments cover ${pct(quality)}% of the goal. Better or more instruments needed.` },
+      section: blurry ? 'platform' : 'payload',
+    },
+    {
+      k: fit,
+      text: { ru: `Орбита подходит задаче на ${pct(fit)}%.`, en: `The orbit suits the goal at ${pct(fit)}%.` },
+      section: 'orbit',
+    },
+    {
+      k: years,
+      text: { ru: `Аппарат проработает меньше, чем просит заказчик (${sc.targetYears} г.).`, en: `The spacecraft will not last the ${sc.targetYears} years asked for.` },
+      section: years < 1 && ev.time.effectiveYears < ev.time.lifeYears ? 'platform' : 'plan',
+    },
+  ];
+  const worst = factors.reduce((a, b) => (b.k < a.k ? b : a));
+  return worst.k < 0.999 ? { text: worst.text, section: worst.section } : null;
+}
+
+function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Design; sc: Scenario; onGo: (s: SectionId) => void }) {
   const t = useT();
+  const reason = forecastReason(ev, design, sc);
   return (
     <div className="budgets">
       <Gauge
@@ -503,6 +582,7 @@ function Budgets({ ev }: { ev: Evaluation }) {
         used={ev.time.devMonths}
         limit={ev.time.deadline}
         unit={t('мес.', 'mo')}
+        hint={t('нужно на разработку / есть до запуска', 'needed to build / left until launch')}
         fix={t('Меньше приборов или испытания короче.', 'Fewer instruments or shorter testing.')}
       />
       <div className="forecast" data-state={ev.science.projected >= 1 ? 'ok' : ev.science.projected >= 0.5 ? 'tight' : 'over'}>
@@ -514,6 +594,14 @@ function Budgets({ ev }: { ev: Evaluation }) {
           <div className="gauge-fill" style={{ width: `${Math.min(100, (ev.science.projected / 1.4) * 100)}%` }} />
         </div>
         <p className="gauge-hint">{t('отметка — цель заказчика', 'the tick is the customer’s target')}</p>
+        {reason && (
+          <button type="button" className="forecast-why" onClick={() => onGo(reason.section)}>
+            <span>{t(reason.text)}</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
