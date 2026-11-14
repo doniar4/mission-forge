@@ -6,7 +6,7 @@ import type { Design, OrbitId } from '../engine/types';
 import type { Director } from '../flight/director';
 import type { Assets } from './assets';
 import { buildCraft, type Craft } from './craft';
-import { Plume, Puffs, makeGround, makeSky } from './fx';
+import { Plume, Puffs, horizonColour, makeClouds, makeGround, makeSky } from './fx';
 import { ORBIT_GEO, Orbit, betaFor, newFrame, type OrbitFrame } from './orbits';
 import { BODY_RADIUS, latLon, makePlanet, makeStars, makeSun, type BodyId, type Planet } from './planet';
 import { buildPad, buildRocket, type Rocket } from './rocket';
@@ -66,6 +66,15 @@ const MM = 1e-6;
 const RE = BODY_RADIUS.earth;
 const MU: Record<BodyId, number> = { earth: 398600, moon: 4902.8, mars: 42828 };
 const GROUND_CAM = 13;
+/** Sunlight relative to Earth's distance (inverse square): Mars gets 43 %. */
+const SOLAR: Record<string, number> = { earth: 1, moon: 1, l1: 1.02, mars: 0.43 };
+/** Share of sunlight a body throws back, and its colour: what lights the spacecraft from below. */
+const ALBEDO: Record<string, { k: number; colour: number }> = {
+  earth: { k: 0.3, colour: 0x8fb4ff },
+  moon: { k: 0.12, colour: 0xc9c6c0 },
+  mars: { k: 0.25, colour: 0xff9c66 },
+};
+const SUN = 3.2;
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -105,6 +114,21 @@ export class FlightStage {
   private stars = makeStars();
   private sky = makeSky();
   private ground = makeGround();
+  private clouds = makeClouds();
+  private haze = new THREE.FogExp2(0x9fb8e0, 0.00009);
+  /** Sunlight bounced off the body below: blue from Earth, grey from the Moon, rust from Mars. */
+  private bounce = new THREE.DirectionalLight(0x8fb4ff, 0);
+  private shadowAt = new THREE.Vector3();
+  private shadowSize = 100;
+  /** Camera kick from staging, decaying. */
+  private kick = 0;
+  private fired = new Set<string>();
+  private burst = new Puffs(320, 0xe9eef7);
+  private rcs = new Puffs(160, 0xf2f6ff);
+  private rcsClock = 2;
+  private deployT = 0;
+  private vapour: THREE.Mesh;
+  private vapourUniforms = { uOn: { value: 0 }, uTime: { value: 0 } };
 
   // vehicle
   private rocket: Rocket;
@@ -166,9 +190,14 @@ export class FlightStage {
     this.renderer.autoClear = false;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.set(2048, 2048);
+    this.sunLight.shadow.bias = -0.0006;
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.near.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.near.environmentIntensity = 0.3;
+    this.near.environmentIntensity = 0.2;
     pmrem.dispose();
 
     // ---- far scene -----------------------------------------------------------
@@ -182,8 +211,9 @@ export class FlightStage {
     const north = this.site.clone().cross(east).normalize();
     // Polar launches go south over the sea; everything else goes east with Earth's spin.
     this.heading.copy(sso ? north.clone().multiplyScalar(-0.99).addScaledVector(east, -0.14) : east).normalize();
-    // A mid-morning launch: the Sun 35 degrees up, ahead and to the side.
-    this.sunDir.copy(this.site).multiplyScalar(Math.sin(0.61)).addScaledVector(this.heading, 0.55).addScaledVector(this.site.clone().cross(this.heading), -0.6).normalize();
+    // A morning launch: the Sun low in the east, downrange, so the rocket is lit from the side
+    // and the tower's shadow falls long across the pad.
+    this.sunDir.copy(this.site).multiplyScalar(0.55).addScaledVector(this.heading, 0.8).addScaledVector(this.site.clone().cross(this.heading), 0.22).normalize();
 
     if (geo.body === 'moon' || geo.body === 'mars') {
       this.dest = makePlanet(geo.body);
@@ -248,7 +278,8 @@ export class FlightStage {
     for (const o of this.cruiseOnly) o.visible = false;
 
     // ---- near scene ----------------------------------------------------------
-    this.near.add(this.sunLight, this.sunLight.target, this.hemi, this.sky.mesh, this.pulseLight);
+    this.near.add(this.sunLight, this.sunLight.target, this.hemi, this.sky.mesh, this.pulseLight, this.bounce, this.bounce.target, this.burst.points, this.rcs.points);
+    this.near.fog = this.haze;
     this.rocket = buildRocket(view.vehicleId, assets);
     this.pad = buildPad(this.rocket, assets);
     this.rocket.root.add(this.engineLight);
@@ -256,7 +287,38 @@ export class FlightStage {
     this.pad.group.add(this.ground);
     this.ground.position.y = -1.5;
     this.padFx.add(this.smoke.points, this.fire.points);
+    this.pad.group.add(this.clouds.points);
+    this.clouds.points.position.y = -1.5;
     this.near.add(this.rocket.root, this.pad.group, this.padFx);
+    // Everything solid casts and catches shadows; glowing effects do neither.
+    const shade = (root: THREE.Object3D) =>
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || mesh.material instanceof THREE.ShaderMaterial) return;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      });
+    shade(this.rocket.root);
+    shade(this.pad.group);
+
+    // The vapour collar that wraps the rocket as it goes through the speed of sound.
+    this.vapour = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 1.9, 2.4, 40, 6, true).translate(0, -1.2, 0),
+      new THREE.ShaderMaterial({
+        uniforms: this.vapourUniforms,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        vertexShader:
+          'varying float vY; varying vec3 vN; varying vec3 vV; void main(){ vY = -position.y / 2.4; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader:
+          'uniform float uOn; uniform float uTime; varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float rim = 1.0 - abs(dot(normalize(vN), normalize(vV))); float wisp = 0.75 + 0.25 * sin(vY * 40.0 - uTime * 30.0); float a = uOn * pow(rim, 1.6) * smoothstep(0.0, 0.25, vY) * (1.0 - smoothstep(0.55, 1.0, vY)) * wisp * 0.75; gl_FragColor = vec4(vec3(0.94, 0.96, 1.0), a); }',
+      }),
+    );
+    this.vapour.visible = false;
+    this.vapour.position.y = this.rocket.height * 0.8;
+    this.vapour.scale.setScalar(this.rocket.diameter);
+    this.rocket.root.add(this.vapour);
 
     this.craft = buildCraft(view.design, view.dryKg, assets);
     this.craft.setDeploy(0);
@@ -268,6 +330,7 @@ export class FlightStage {
     this.craft.root.position.y = this.rocket.payloadY - folded.min.y * fit;
     this.craft.root.rotation.y = Math.PI / 2;
     this.rocket.root.add(this.craft.root);
+    shade(this.craft.root);
     if (this.craft.exhaust) {
       const ion = view.design.propulsion === 'ion';
       this.craftPlume = new Plume(this.craft.radius * 0.07, this.craft.radius * (ion ? 0.9 : 1.6), ion ? '#7fd4ff' : '#ffc890');
@@ -454,7 +517,26 @@ export class FlightStage {
     // Light, planets and the two cameras.
     const inv = this.frameQ.clone().invert();
     const sunLocal = this.sunDir.clone().applyQuaternion(inv);
-    this.sunLight.position.copy(sunLocal).multiplyScalar(100);
+    // The Sun's shadow box follows whatever matters in the shot: the pad at lift-off, the vehicle after.
+    const reach = this.shadowSize;
+    this.sunLight.target.position.copy(this.shadowAt);
+    this.sunLight.position.copy(this.shadowAt).addScaledVector(sunLocal, reach * 4);
+    const sc = this.sunLight.shadow.camera;
+    if (sc.right !== reach) {
+      sc.left = -reach;
+      sc.right = reach;
+      sc.top = reach;
+      sc.bottom = -reach;
+      sc.near = reach * 0.5;
+      sc.far = reach * 8;
+      sc.updateProjectionMatrix();
+      this.sunLight.shadow.normalBias = reach * 0.0006;
+    }
+    // Small puffs: stage-separation clouds by the rocket, cold-gas thrusters on the spacecraft.
+    const pixels = this.canvas.height / (2 * Math.tan(THREE.MathUtils.degToRad(this.cam.fov) / 2));
+    this.burst.update(sdt, pixels, 0.55);
+    this.rcs.update(dt, pixels, 0.5);
+    this.kick *= Math.exp(-dt * 2.5);
     this.sunSprite.position.copy(this.framePos).addScaledVector(this.sunDir, 800);
     // The stars are infinitely far away: keep them centred on whichever camera is looking.
     this.stars.position.copy(this.map ? this.mapCam.position : this.framePos);
@@ -504,8 +586,11 @@ export class FlightStage {
       this.engineLight.intensity = 0;
       this.hemi.color.set(0x9fc0ff);
       this.hemi.groundColor.set(0x1b2a55);
-      this.hemi.intensity = 0.42;
-      this.near.environmentIntensity = 0.22;
+      // Space has no sky to fill the shadows: what lights the dark side is the planet below.
+      this.hemi.intensity = 0.1;
+      this.near.environmentIntensity = 0.12;
+      this.near.fog = null;
+      this.vapour.visible = false;
       // The spent upper stage drifts away behind.
       const s2 = this.rocket.s2;
       this.near.add(s2);
@@ -565,8 +650,20 @@ export class FlightStage {
       const m = (o as THREE.Mesh).material as THREE.Material | undefined;
       if (m) m.opacity = groundFade;
     });
-    this.sky.set(sunLocal, Math.exp(-s.alt / 16000));
-    this.hemi.intensity = 0.25 + 0.75 * Math.exp(-s.alt / 12000);
+    const air = Math.exp(-s.alt / 16000);
+    this.sky.set(sunLocal, air);
+    this.hemi.intensity = 0.18 + 0.5 * Math.exp(-s.alt / 12000);
+    // Haze thickens towards the horizon and thins as the rocket climbs out of the air.
+    horizonColour(air, this.haze.color);
+    this.haze.density = 0.00009 * Math.exp(-s.alt / 7000);
+    // Shadows: the rocket, tower and tanks on the pad at lift-off; the rocket on itself higher up.
+    if (s.alt < 700) {
+      this.shadowAt.set(-s.range / 2, ground / 2, 0);
+      this.shadowSize = H * 0.75 + 70 + s.alt * 0.6 + s.range * 0.6;
+    } else {
+      this.shadowAt.set(axis.x * H * 0.5, axis.y * H * 0.5, 0);
+      this.shadowSize = H * 0.6 + 6;
+    }
     // Service arms swing clear just before ignition.
     const swing = smooth(-6, -2.5, met) * 1.25;
     this.pad.arms.forEach((arm, i) => (arm.rotation.y = (i % 2 ? -1 : 1) * swing));
@@ -582,6 +679,30 @@ export class FlightStage {
     R.boosterPlumes.forEach((p) => p.update(dt, this.time, lit && met >= -0.4 && met < tBoost ? 1 : 0, vacuum));
     R.upperPlume.update(dt, this.time, lit && s.stage === 2 ? 1 : 0, 1);
     this.engineLight.intensity = corePower * (1 - vacuum) * 6e4;
+    // Through the speed of sound the air condenses into a collar round the rocket.
+    const transonic = smooth(270, 330, s.speed) * (1 - smooth(400, 470, s.speed)) * (1 - smooth(9000, 16000, s.alt));
+    this.vapour.visible = lit && transonic > 0.01;
+    this.vapourUniforms.uOn.value = transonic;
+    this.vapourUniforms.uTime.value = this.time;
+    // Each separation: a jolt to the camera and a puff of gas and debris at the joint.
+    for (const [id, y, ring] of [
+      ['boosters', H * 0.14, R.baseWidth * 0.5],
+      ['separation', R.stage2Y, R.diameter * 0.55],
+      ['fairing', R.payloadY + R.fairingHeight * 0.5, R.fairingRadius],
+    ] as const) {
+      if (this.exploded || met < at(id) || this.fired.has(id)) continue;
+      this.fired.add(id);
+      this.kick = 1;
+      const centre = axis.clone().multiplyScalar(y);
+      const across = new THREE.Vector3(-axis.y, axis.x, 0);
+      for (let i = 0; i < 34; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const out = across.clone().multiplyScalar(Math.cos(ang)).add(new THREE.Vector3(0, 0, Math.sin(ang)));
+        const v = out.clone().multiplyScalar(4 + Math.random() * 10).addScaledVector(axis, -(3 + Math.random() * 9));
+        const p = centre.clone().addScaledVector(out, ring);
+        this.burst.emit(p.x, p.y, p.z, v.x, v.y, v.z, R.diameter * (0.9 + Math.random() * 1.4), 2.2 + Math.random() * 2, 2.6);
+      }
+    }
 
     // Staging: each spent piece falls behind once its moment has passed.
     R.boosters.forEach((b) => {
@@ -669,11 +790,13 @@ export class FlightStage {
       }
       this.pulseLight.color.set(0xffa050);
       this.pulse = 1;
+      this.kick = 1.6;
     }
     const pix = this.canvas.height / (2 * Math.tan(THREE.MathUtils.degToRad(this.cam.fov) / 2));
     const fxStep = this.exploded ? sdt : Math.min(step, sdt * 8);
     this.smoke.update(fxStep, pix, 0.42 * (1 - smooth(20_000, 34_000, s.alt)), 0.5);
     this.fire.update(sdt, pix, 0.9);
+    this.clouds.update(pix, sunLocal, 1 - smooth(12_000, 24_000, s.alt));
 
     // Camera: a tracking shot from the ground, then a chase beside the rocket.
     const upper = met > tSep;
@@ -705,12 +828,21 @@ export class FlightStage {
       // Unless the player has taken the camera, swing round to fly alongside, a little above and ahead.
       if (!this.touched) {
         const dir = this.cam.position.clone().sub(this.controls.target).normalize();
-        dir.lerp(new THREE.Vector3(0.3, 0.3, 0.9).normalize(), 1 - Math.exp(-dt * 0.9)).normalize();
+        // Low in the air, look down past the rocket so the coast and the clouds share the frame.
+        const low = 1 - smooth(8000, 30_000, s.alt);
+        const wish = new THREE.Vector3(0.3, 0.3 + 0.16 * low, 0.9).normalize();
+        dir.lerp(wish, 1 - Math.exp(-dt * 1.7)).normalize();
         this.cam.position.copy(this.controls.target).addScaledVector(dir, this.camDist);
       }
       this.controls.minDistance = this.controls.maxDistance = this.camDist;
       this.controls.target.lerp(target, 1 - Math.exp(-dt * 4));
       this.controls.update();
+      // Buffeting: the camera shakes with the air pressure on the rocket and at every separation.
+      const shake = (Math.min(1, s.q / 32_000) * 0.003 + this.kick * 0.014) * (lit || this.exploded ? 1 : 0.35);
+      if (shake > 1e-4 && d.speed > 0) {
+        this.cam.rotateX((Math.random() - 0.5) * shake);
+        this.cam.rotateY((Math.random() - 0.5) * shake);
+      }
     }
 
     Object.assign(this.hud, { alt: s.alt / 1000, speed: s.speed, g: s.g, q: s.q, fuel1: s.fuel1, fuel2: s.fuel2, stage: s.stage, burning: lit, eclipse: false, contact: false });
@@ -726,11 +858,27 @@ export class FlightStage {
     const up = this.site.clone().multiplyScalar(Math.cos(this.theta)).addScaledVector(this.heading, Math.sin(this.theta));
     const fwd = this.site.clone().multiplyScalar(-Math.sin(this.theta)).addScaledVector(this.heading, Math.cos(this.theta));
     this.setFrame(fwd, up, fwd.clone().cross(up), up.clone().multiplyScalar(RE + 0.2));
+    this.lightFrom(up.clone().multiplyScalar(RE + 0.2), 'earth', RE, 1, dt);
+    this.shadowAt.set(0, 0, 0);
+    this.shadowSize = this.craft.radius * 2.6 + 2;
     this.craft.setDeploy(smooth(0.3, 0.92, p));
     this.craft.trackSun(this.sunBody());
+    // Springs push the stage away, fast at first; it tumbles slowly as it goes.
+    const first = this.deployT === 0;
+    this.deployT += sdt;
     const s2 = this.rocket.s2;
-    s2.position.x -= sdt * (1.2 + this.rocket.height * 0.02);
+    s2.position.x -= sdt * (1.2 + this.rocket.height * 0.02 + 3.5 * Math.exp(-this.deployT * 1.2));
     s2.rotation.x += sdt * 0.05;
+    s2.rotation.y += sdt * 0.018;
+    if (first) {
+      // The clamp band lets go: a ring of gas between the stage and the spacecraft.
+      const R = this.craft.radius;
+      for (let i = 0; i < 18; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const out = new THREE.Vector3(0, Math.cos(a), Math.sin(a));
+        this.rcs.emit(-R * 0.6, out.y * R * 0.4, out.z * R * 0.4, -R * 0.6 + out.x, out.y * R * 0.9, out.z * R * 0.9, R * 0.14, 1.1 + Math.random() * 0.6, 2.8);
+      }
+    } else this.thrusters(dt);
     this.chase(dt, this.craft.radius * 3.3 + 2);
     Object.assign(this.hud, { alt: 200, speed: 7790, g: 0, q: 0, burning: false, stage: 2, eclipse: false, contact: false });
   }
@@ -747,6 +895,11 @@ export class FlightStage {
     const y = new THREE.Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize();
     this.setFrame(dir, y, dir.clone().cross(y), pos);
     const along = pos.length();
+    // Sunlight weakens on the way out to Mars.
+    this.lightFrom(null, 'none', 0, 1 + ((SOLAR[this.orbit.geo.body] ?? 1) - 1) * u, dt);
+    this.shadowAt.set(0, 0, 0);
+    this.shadowSize = this.craft.radius * 2.4 + 1;
+    this.thrusters(dt);
     this.craft.trackSun(this.sunBody());
     this.craft.aimDish(this.toBody(new THREE.Vector3(-1, 0, 0)));
     // Watch Earth shrink behind, then swing round to see the destination grow ahead.
@@ -780,15 +933,14 @@ export class FlightStage {
       planet.globe.rotation.y += ((Math.PI * 2 * sdt) / g.period) * g.spin;
     }
 
-    // Shadow: is the planet between the spacecraft and the Sun?
-    let eclipse = false;
-    if (planet) {
-      const along = pos.dot(this.sunDir);
-      eclipse = along < 0 && pos.clone().addScaledVector(this.sunDir, -along).length() < planet.radius;
-    }
+    // Shadow: how much of the Sun the planet hides, and the light it bounces back.
+    const sunVisible = this.lightFrom(planet ? pos : null, g.body, planet?.radius ?? 0, SOLAR[g.body] ?? 1, dt);
+    const eclipse = sunVisible < 0.5;
     const h = this.hud;
     h.eclipse = eclipse;
-    this.sunLight.intensity += ((eclipse ? 0.03 : 3.2) - this.sunLight.intensity) * (1 - Math.exp(-dt * 3));
+    this.shadowAt.set(0, 0, 0);
+    this.shadowSize = this.craft.radius * 2.4 + 1;
+    this.thrusters(dt);
 
     // The battery carries the spacecraft through the dark, if it is big enough.
     const dark = Math.max(0.05, 1 - this.view.sunFraction) * g.period;
@@ -874,6 +1026,62 @@ export class FlightStage {
   }
 
   // ---- helpers -----------------------------------------------------------------------
+
+  /**
+   * Light from where the spacecraft really is. `rel` is its position from the centre of the body
+   * below (null far from any). Sunlight falls off with distance from the Sun, fades through a
+   * soft-edged shadow and reddens where it skims an atmosphere; the body's lit face throws back
+   * its own coloured light from below, stronger the closer and the more of it is in daylight.
+   * Returns how much of the Sun is visible (0..1).
+   */
+  private lightFrom(rel: THREE.Vector3 | null, body: string, radius: number, solar: number, dt: number): number {
+    let vis = 1;
+    let dusk = 0;
+    if (rel && radius > 0) {
+      const along = rel.dot(this.sunDir);
+      if (along < 0) {
+        const d = rel.clone().addScaledVector(this.sunDir, -along).length();
+        const edge = radius * 0.02;
+        vis = smooth(radius - edge, radius + edge, d);
+        if (body === 'earth') dusk = 1 - smooth(radius, radius * 1.05, d);
+        else if (body === 'mars') dusk = 0.45 * (1 - smooth(radius, radius * 1.03, d));
+      }
+    }
+    const want = SUN * solar * vis;
+    // The eye adapts a little: at Mars the light is 43 % but reads as about 60 %.
+    this.renderer.toneMappingExposure = 1.05 * Math.pow(solar, -0.35);
+    this.sunLight.intensity += (want - this.sunLight.intensity) * (1 - Math.exp(-dt * 6));
+    this.sunLight.color.setRGB(1, 0.957, 0.902).lerp(new THREE.Color(1, 0.42, 0.18), dusk * 0.85);
+    const alb = ALBEDO[body];
+    if (rel && alb && radius > 0) {
+      const r = rel.length();
+      const up = rel.clone().divideScalar(r);
+      // How much of the face we see is in daylight, and how big the body looms.
+      const phase = 0.5 * (1 + up.dot(this.sunDir));
+      const looms = 1 - Math.sqrt(Math.max(0, 1 - (radius / r) ** 2));
+      this.bounce.intensity = SUN * solar * alb.k * phase * looms * 2.4;
+      this.bounce.color.set(alb.colour);
+      const toBody = up.negate().applyQuaternion(this.frameQ.clone().invert());
+      this.bounce.position.copy(toBody).multiplyScalar(50);
+      this.bounce.target.position.set(0, 0, 0);
+    } else this.bounce.intensity = 0;
+    return vis;
+  }
+
+  /** Now and then a thruster fires to hold attitude: a small white puff, gone in a moment. */
+  private thrusters(dt: number) {
+    if (this.lost || this.director.speed === 0) return;
+    this.rcsClock -= dt;
+    if (this.rcsClock > 0) return;
+    this.rcsClock = 3 + Math.random() * 5;
+    const R = this.craft.radius;
+    const side = new THREE.Vector3(Math.random() - 0.5, (Math.random() - 0.5) * 0.6, Math.random() - 0.5).normalize();
+    for (let i = 0; i < 4; i++) {
+      const p = side.clone().multiplyScalar(R * 0.62);
+      const v = side.clone().multiplyScalar(R * (1.2 + Math.random())).add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(R * 0.3));
+      this.rcs.emit(p.x, p.y, p.z, v.x, v.y, v.z, R * (0.08 + Math.random() * 0.06), 0.6 + Math.random() * 0.4, 3.2);
+    }
+  }
 
   /** Sun direction in the spacecraft's own axes. */
   private sunBody(): THREE.Vector3 {

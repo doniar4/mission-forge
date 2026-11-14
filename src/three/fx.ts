@@ -245,65 +245,218 @@ export function makeSky(): { mesh: THREE.Mesh; set(sun: THREE.Vector3, density: 
   };
 }
 
-/** The ground around the launch site: a coast, with the sea to the east where the rocket flies. */
+
+// ---- the launch site ------------------------------------------------------------
+
+/** Small deterministic noise, so the coast is the same every launch. */
+function hash(x: number, y: number): number {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function noise(x: number, y: number): number {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi);
+  const b = hash(xi + 1, yi);
+  const c = hash(xi, yi + 1);
+  const d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x: number, y: number): number {
+  let sum = 0;
+  let amp = 0.5;
+  let f = 1;
+  for (let i = 0; i < 5; i++) {
+    sum += amp * noise(x * f, y * f);
+    f *= 2.03;
+    amp *= 0.5;
+  }
+  return sum;
+}
+const ss = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** Where the beach is: the sea lies to +X, downrange, where rockets fly. */
+const shoreX = (z: number) => 2600 + 260 * Math.sin(z * 0.0011) + 90 * Math.sin(z * 0.0037 + 1.3);
+/** The assembly building at the far end of the crawler road. */
+const VAB = { x: -1700, z: -60, w: 160, h: 160, d: 120 };
+
+/**
+ * Height of the ground (m) at a point near the launch site: flat around the pad, rolling
+ * hills inland, a beach and then the sea floor downrange.
+ */
+export function groundHeight(x: number, z: number): number {
+  const r = Math.hypot(x, z);
+  // Flat around the pad, the assembly building and along the crawler road between them.
+  const road = x < 0 && x > VAB.x ? ss(30, 160, Math.abs(z - VAB.z * (x / VAB.x))) : 1;
+  const flat = ss(380, 1400, r) * ss(260, 700, Math.hypot(x - VAB.x, z - VAB.z)) * road;
+  const sx = shoreX(z);
+  const inland = ss(-40, 700, sx - x);
+  const hills = (fbm(x * 0.00055 + 3.1, z * 0.00055 - 1.7) - 0.35) * 260 * ss(1500, 6000, r);
+  const bumps = (fbm(x * 0.004, z * 0.004) - 0.5) * 6;
+  const land = Math.max(0.6, hills + 4) * inland + bumps * inland;
+  const seabed = -10 * ss(-80, 600, x - sx);
+  return land * flat + (1 - flat) * 0.6 * inland + seabed;
+}
+
+function groundColour(x: number, z: number, h: number, out: THREE.Color): THREE.Color {
+  const sx = shoreX(z);
+  const forest = fbm(x * 0.0016 + 9, z * 0.0016 - 4);
+  const tint = fbm(x * 0.006, z * 0.006);
+  // Grass, darker under woods, paler and drier on the hilltops.
+  out.setRGB(0.2 + tint * 0.08, 0.29 + tint * 0.07, 0.13 + tint * 0.04);
+  if (forest > 0.52) out.lerp(new THREE.Color(0.08, 0.15, 0.07), ss(0.52, 0.62, forest));
+  if (h > 40) out.lerp(new THREE.Color(0.42, 0.4, 0.31), ss(40, 140, h) * 0.7);
+  // Beach and wet sand along the shore.
+  const toShore = sx - x;
+  if (toShore < 160) out.lerp(new THREE.Color(0.72, 0.66, 0.5), ss(160, 40, toShore));
+  if (toShore < 0) out.lerp(new THREE.Color(0.32, 0.36, 0.33), ss(0, -120, toShore));
+  // Concrete: the pad apron and the crawler road to the assembly building.
+  const r = Math.hypot(x, z);
+  if (r < 90) out.setRGB(0.46, 0.46, 0.45);
+  else if (r < 140) out.lerp(new THREE.Color(0.38, 0.38, 0.36), ss(140, 90, r));
+  if (x < -60 && x > VAB.x && Math.abs(z - (VAB.z * (x / VAB.x))) < 16) out.setRGB(0.5, 0.48, 0.44);
+  if (Math.hypot(x - VAB.x, z - VAB.z) < 180) out.lerp(new THREE.Color(0.44, 0.44, 0.42), 0.85);
+  return out;
+}
+
+/**
+ * The ground around the launch site: rolling land with woods, a beach and the sea downrange,
+ * the assembly building at the end of the road, and the same coast faded out to the horizon.
+ * Every material is transparent so the whole thing can fade as the rocket climbs.
+ */
 export function makeGround(): THREE.Group {
-  const c = document.createElement('canvas');
-  c.width = c.height = 1024;
-  const g = c.getContext('2d')!;
-  g.fillStyle = '#5d6f52';
-  g.fillRect(0, 0, 1024, 1024);
-  let seed = 7;
-  const rnd = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
+  const group = new THREE.Group();
+  const SIZE = 16000;
+  const SEG = 220;
+
+  // Land.
+  const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const colours = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  const farLand = new THREE.Color(0.22, 0.31, 0.14);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const h = groundHeight(x, z);
+    groundColour(x, z, h, c);
+    // The edges sink and fade into the far disc, so the land has no visible rim.
+    const edge = ss(SIZE * 0.36, SIZE * 0.5, Math.max(Math.abs(x), Math.abs(z)));
+    pos.setY(i, h + (-12 - h) * edge);
+    c.lerp(x > shoreX(z) ? new THREE.Color(0.03, 0.12, 0.19) : farLand, edge);
+    colours.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colours, 3));
+  geo.computeVertexNormals();
+  const land = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0, transparent: true }));
+  land.receiveShadow = true;
+  land.name = 'land';
+
+  // Sea: dark, smooth enough to catch the Sun. A disc out to the horizon, opaque east of the
+  // coast and fading at the rim, so it has no straight edges anywhere.
+  const SEA_R = 60_000;
+  const coastPx = (x: number) => ((x / SEA_R + 1) / 2) * 512;
+  const mask = document.createElement('canvas');
+  mask.width = mask.height = 512;
+  const mg = mask.getContext('2d')!;
+  mg.fillStyle = '#000';
+  mg.fillRect(0, 0, 512, 512);
+  const coast = mg.createLinearGradient(coastPx(2200), 0, coastPx(2900), 0);
+  coast.addColorStop(0, '#000');
+  coast.addColorStop(1, '#fff');
+  mg.fillStyle = coast;
+  mg.fillRect(coastPx(2200), 0, 512 - coastPx(2200), 512);
+  const seaRim = mg.createRadialGradient(256, 256, 150, 256, 256, 256);
+  seaRim.addColorStop(0, 'rgba(0,0,0,0)');
+  seaRim.addColorStop(1, 'rgba(0,0,0,1)');
+  mg.fillStyle = seaRim;
+  mg.fillRect(0, 0, 512, 512);
+  const seaMask = new THREE.CanvasTexture(mask);
+  const sea = new THREE.Mesh(
+    new THREE.CircleGeometry(SEA_R, 96).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color(0.03, 0.12, 0.19), roughness: 0.16, metalness: 0.05, transparent: true, alphaMap: seaMask, depthWrite: false }),
+  );
+  sea.position.y = -0.4;
+  // Drawn after the land: the sea covers the sea floor but not the beach.
+  sea.renderOrder = 1;
+  sea.receiveShadow = true;
+
+  // Woods: cones scattered where the noise says forest, never on the pad, the road or the beach.
+  const tree = new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
+  const COUNT = 2600;
+  const woods = new THREE.InstancedMesh(tree, new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, transparent: true }), COUNT);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const sc = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  let n = 0;
+  let k = 0;
+  while (n < COUNT && k < COUNT * 30) {
+    k++;
+    const a = hash(k, 1.7) * Math.PI * 2;
+    const r = 420 + Math.pow(hash(k, 8.3), 0.7) * 6400;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    if (x > shoreX(z) - 180) continue;
+    if (x < 0 && x > VAB.x - 200 && Math.abs(z) < 120) continue;
+    if (Math.hypot(x - VAB.x, z - VAB.z) < 320) continue;
+    const forest = fbm(x * 0.0016 + 9, z * 0.0016 - 4);
+    if (forest < 0.47 && hash(k, 3.3) > 0.06) continue;
+    const h = 8 + hash(k, 5.1) * 9;
+    p.set(x, groundHeight(x, z) - 0.5, z);
+    sc.set(2.6 + hash(k, 6.7) * 2.2, h, 2.6 + hash(k, 6.7) * 2.2);
+    m.compose(p, q, sc);
+    woods.setMatrixAt(n, m);
+    woods.setColorAt(n, c.setRGB(0.07 + hash(k, 2.2) * 0.05, 0.16 + hash(k, 4.4) * 0.07, 0.07 + hash(k, 9.9) * 0.03));
+    n++;
+  }
+  woods.count = n;
+  woods.instanceMatrix.needsUpdate = true;
+  if (woods.instanceColor) woods.instanceColor.needsUpdate = true;
+
+  // The assembly building and a few hangars: they give the rocket its scale.
+  const concrete = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.62, 0.62, 0.6), roughness: 0.85, transparent: true });
+  const dark = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.08, 0.09, 0.11), roughness: 0.7, transparent: true });
+  const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0), mat);
+    b.position.set(x, y, z);
+    b.castShadow = true;
+    b.receiveShadow = true;
+    return b;
   };
-  for (let i = 0; i < 2600; i++) {
-    const x = rnd() * 1024;
-    const y = rnd() * 1024;
-    const r = 6 + rnd() * 34;
-    g.fillStyle = `rgba(${60 + rnd() * 60},${90 + rnd() * 40},${50 + rnd() * 30},0.22)`;
-    g.beginPath();
-    g.ellipse(x, y, r, r * (0.5 + rnd() * 0.6), rnd() * 3, 0, Math.PI * 2);
-    g.fill();
+  const buildings = new THREE.Group();
+  const vy = groundHeight(VAB.x, VAB.z);
+  buildings.add(box(VAB.w, VAB.h, VAB.d, concrete, VAB.x, vy, VAB.z));
+  buildings.add(box(VAB.w * 0.62, VAB.h * 0.55, VAB.d * 1.5, concrete, VAB.x - 40, vy, VAB.z));
+  // The tall doors face the pad.
+  buildings.add(box(2, VAB.h * 0.86, 34, dark, VAB.x + VAB.w / 2 + 0.6, vy, VAB.z - 22));
+  buildings.add(box(2, VAB.h * 0.86, 34, dark, VAB.x + VAB.w / 2 + 0.6, vy, VAB.z + 22));
+  for (const [x, z, w, d] of [
+    [-760, -220, 70, 40],
+    [-820, 240, 90, 36],
+    [-1180, 260, 50, 50],
+    [-420, 520, 40, 28],
+  ] as const) {
+    buildings.add(box(w, 14 + (Math.abs(x) % 9), d, concrete, x, groundHeight(x, z), z));
   }
-  // Sea on the +X side, behind a wavy shoreline and a strip of sand.
-  const shore = (y: number) => 640 + Math.sin(y * 0.011) * 26 + Math.sin(y * 0.037) * 9;
-  for (const [offset, colour] of [[-14, '#b9ad8c'], [0, '#2b6f86'], [22, '#1c5574'], [70, '#17456a']] as const) {
-    g.fillStyle = colour;
-    g.beginPath();
-    g.moveTo(1024, 0);
-    for (let y = 0; y <= 1024; y += 16) g.lineTo(shore(y) + offset, y);
-    g.lineTo(1024, 1024);
-    g.closePath();
-    g.fill();
-  }
-  // The apron and the road to it.
-  g.fillStyle = '#8b9199';
-  g.fillRect(506, 506, 12, 12);
-  g.fillRect(300, 510, 212, 3);
-  // Fade to nothing at the rim so the disc melts into the horizon.
-  const fade = g.createRadialGradient(512, 512, 300, 512, 512, 512);
-  fade.addColorStop(0, 'rgba(0,0,0,0)');
-  fade.addColorStop(1, 'rgba(0,0,0,1)');
-  g.globalCompositeOperation = 'destination-out';
-  g.fillStyle = fade;
-  g.fillRect(0, 0, 1024, 1024);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  const near = new THREE.Mesh(new THREE.CircleGeometry(4000, 64), new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false }));
-  near.rotation.x = -Math.PI / 2;
-  near.position.y = 0.2;
-  near.renderOrder = -5;
 
   // The same coast out to the horizon, without the detail.
   const wide = document.createElement('canvas');
   wide.width = wide.height = 256;
   const w = wide.getContext('2d')!;
-  w.fillStyle = '#5d6f52';
+  // The same colours as the near land and sea (sRGB of their linear values).
+  w.fillStyle = '#829769';
   w.fillRect(0, 0, 256, 256);
-  w.fillStyle = '#17456a';
-  w.fillRect(132, 0, 124, 256);
+  w.fillStyle = '#306179';
+  w.fillRect(133, 0, 123, 256);
   const rim = w.createRadialGradient(128, 128, 70, 128, 128, 128);
   rim.addColorStop(0, 'rgba(0,0,0,0)');
   rim.addColorStop(1, 'rgba(0,0,0,1)');
@@ -314,9 +467,106 @@ export function makeGround(): THREE.Group {
   wideTex.colorSpace = THREE.SRGBColorSpace;
   const far = new THREE.Mesh(new THREE.CircleGeometry(60_000, 64), new THREE.MeshLambertMaterial({ map: wideTex, transparent: true, depthWrite: false }));
   far.rotation.x = -Math.PI / 2;
+  far.position.y = -12;
   far.renderOrder = -6;
 
-  const group = new THREE.Group();
-  group.add(far, near);
+  group.add(far, sea, land, woods, buildings);
   return group;
+}
+
+/**
+ * A layer of fair-weather cumulus a couple of kilometres up, thicker downrange: the rocket
+ * climbs through it, which is what makes the speed readable. Lit from the Sun's side.
+ */
+export function makeClouds(): { points: THREE.Points; update(scale: number, sun: THREE.Vector3, opacity: number): void } {
+  const CLUSTERS = 70;
+  const PER = 11;
+  const pos = new Float32Array(CLUSTERS * PER * 3);
+  const size = new Float32Array(CLUSTERS * PER);
+  const shade = new Float32Array(CLUSTERS * PER);
+  let i = 0;
+  for (let c = 0; c < CLUSTERS; c++) {
+    const a = hash(c, 0.5) * Math.PI * 2;
+    const r = 1500 + hash(c, 1.5) * 26_000;
+    // More cloud over the sea, where the rocket goes.
+    const cx = Math.cos(a) * r * 0.8 + 5000 * hash(c, 2.5);
+    const cz = Math.sin(a) * r;
+    const cy = 1900 + hash(c, 3.5) * 900;
+    const spread = 300 + hash(c, 4.5) * 500;
+    for (let j = 0; j < PER; j++) {
+      const k = c * 31 + j;
+      const ox = (hash(k, 7.1) - 0.5) * spread * 2;
+      const oz = (hash(k, 8.1) - 0.5) * spread * 1.4;
+      const oy = (hash(k, 9.1) - 0.3) * spread * 0.35;
+      pos.set([cx + ox, cy + oy, cz + oz], i * 3);
+      size[i] = 260 + hash(k, 10.1) * 420;
+      // Tops are lit, bases are grey.
+      shade[i] = 0.55 + 0.45 * Math.min(1, Math.max(0, (oy / (spread * 0.35) + 0.3)));
+      i++;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aShade', new THREE.BufferAttribute(shade, 1));
+  const uniforms = { uScale: { value: 600 }, uOpacity: { value: 1 }, uSun: { value: new THREE.Vector3(0, 1, 0) } };
+  const points = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        uniform float uScale;
+        attribute float aSize;
+        attribute float aShade;
+        varying float vShade;
+        varying float vFar;
+        void main() {
+          vShade = aShade;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vFar = clamp(-mv.z / 40000.0, 0.0, 1.0);
+          gl_PointSize = min(900.0, aSize * uScale / max(1.0, -mv.z));
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uOpacity;
+        uniform vec3 uSun;
+        varying float vShade;
+        varying float vFar;
+        void main() {
+          vec2 q = gl_PointCoord - 0.5;
+          float d = length(q) * 2.0;
+          float a = smoothstep(1.0, 0.15, d);
+          if (a < 0.01) discard;
+          // The side towards the Sun is bright; the rest is the grey of a cloud's belly.
+          float lit = clamp(0.5 + dot(normalize(vec3(q.x, -q.y, 0.35)), normalize(uSun)) * 0.5, 0.0, 1.0);
+          float sunUp = clamp(uSun.y * 2.0 + 0.2, 0.0, 1.0);
+          vec3 base = mix(vec3(0.55, 0.58, 0.64), vec3(1.0, 0.98, 0.94), lit * vShade);
+          vec3 col = mix(base * vec3(1.0, 0.7, 0.5), base, sunUp);
+          col = mix(col, vec3(0.62, 0.72, 0.86), vFar * 0.7);
+          gl_FragColor = vec4(col, a * uOpacity * 0.85);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    }),
+  );
+  points.frustumCulled = false;
+  points.renderOrder = 2;
+  return {
+    points,
+    update(scale, sun, opacity) {
+      uniforms.uScale.value = scale;
+      uniforms.uSun.value.copy(sun);
+      uniforms.uOpacity.value = opacity;
+      points.visible = opacity > 0.01;
+    },
+  };
+}
+
+/** The sky's colour at the horizon for a given air density, matching makeSky: used for haze. */
+export function horizonColour(density: number, out: THREE.Color): THREE.Color {
+  const day = new THREE.Color(0.6, 0.73, 0.88);
+  const thin = new THREE.Color(0.03, 0.1, 0.36);
+  return out.copy(thin).lerp(day, ss(0, 0.7, density));
 }
