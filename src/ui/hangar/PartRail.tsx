@@ -101,6 +101,15 @@ export function PartRail({
         <div className="rail-story" aria-live="polite">
           {showTitle && <h3>{group.title}</h3>}
           {group.hint && <p className="rail-hint">{group.hint}</p>}
+          {group.cards.some((c) => deltas[c.id] && !group.selected.includes(c.id)) && (
+            <p className="rail-legend">
+              <span className="rail-legend-chip" aria-hidden="true">{t('+кг', '+kg')}</span>
+              {t(
+                'метки — как изменится весь аппарат: вместе с деталью растут корпус, проводка и цена разработки. Ниже — параметры самой детали.',
+                'chips show how the whole spacecraft changes: the structure, wiring and development cost grow with the part. Below are the part’s own numbers.',
+              )}
+            </p>
+          )}
           {told && (
             <p className="rail-desc">
               <b>{told.name}.</b> {told.desc}
@@ -255,7 +264,14 @@ function Deltas({ d }: { d: Delta }) {
   if (d.blockers > 0) chips.push({ text: t('не пройдёт комиссию', 'fails the review'), good: false });
   if (chips.length === 0) return null;
   return (
-    <span className="part-deltas" aria-label={t('Что изменится', 'What changes')}>
+    <span
+      className="part-deltas"
+      aria-label={t('Что изменится у всего аппарата', 'What changes for the whole spacecraft')}
+      title={t(
+        'Как изменится весь аппарат: кроме самой детали, растут корпус, проводка, энергосистема и цена разработки.',
+        'How the whole spacecraft changes: besides the part itself, the structure, wiring, power system and development cost grow too.',
+      )}
+    >
       {chips.map((c) => (
         <span key={c.text} data-good={c.good}>
           {c.text}

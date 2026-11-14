@@ -3108,3 +3108,127 @@ details.review[open] > summary svg {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
+
+/* ---- clearer hangar: what the numbers mean and why the forecast is low ----- */
+/* Gauges say what is divided by what: "demand / supply" is not obvious at a glance. */
+.hangar .gauge-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--ink-3);
+}
+.forecast-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 154, 102, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 154, 102, 0.08);
+  color: var(--orange-ink);
+  font: 500 0.8125rem/1.35 var(--body);
+  text-align: left;
+  cursor: pointer;
+}
+.forecast-why:hover,
+.forecast-why:focus-visible {
+  background: rgba(255, 154, 102, 0.16);
+}
+.forecast-why svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The coach explains the coloured numbers on the stage tabs. */
+.coach-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+.coach-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--gold-ink);
+}
+.coach-legend i:first-child {
+  margin-left: 0;
+}
+.coach-legend i[data-level='blocker'] {
+  background: var(--orange);
+}
+/* A card's chips show the whole spacecraft, not the part alone: the rail says so once. */
+.rail-legend {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+.rail-legend-chip {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--gold-wash);
+  color: var(--gold-ink);
+}
+/* The science forecast is the goal: it leads the resource panel, with its reason in view. */
+.hangar .forecast {
+  order: -1;
+  padding: 0 0 12px;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 1100px) and (min-height: 640px) {
+  .hangar-left {
+    width: 268px;
+  }
+}
+/* When a limit is broken, the fix matters more than the legend. */
+.hangar .gauge[data-state='over'] .gauge-hint,
+.hangar .gauge[data-state='none'] .gauge-hint {
+  display: none;
+}
+@media (max-width: 1099px), (max-height: 639px) {
+  /* a tab click scrolls the section to just under the sticky stage bar */
+  .hangar .dock {
+    scroll-margin-top: 128px;
+  }
+}
+@media (max-width: 600px) {
+  /* instrument classes slide sideways instead of running off the card */
+  .hangar .group-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hangar .group-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .hangar .group-tabs button {
+    flex: none;
+  }
+}
+@media (max-height: 800px) {
+  /* low screens keep "To the pad" in view; the tabs still explain their numbers on hover */
+  .hangar .coach-legend {
+    display: none;
+  }
+}
