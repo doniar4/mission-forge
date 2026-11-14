@@ -22,12 +22,15 @@ interface AuthState {
   account: Account | null;
   /** Set when the player came back from a password-reset email: show "choose a new password". */
   recovering: boolean;
+  /** Which form the account page opens on: the button the player pressed. */
+  intent: 'in' | 'up';
 }
 
 export const useAuth = create<AuthState>(() => ({
   status: authConfigured ? 'loading' : 'off',
   account: null,
   recovering: false,
+  intent: 'in',
 }));
 
 // Only the email goes to Supabase: player names and team chat never leave the game (AGENTS.md,

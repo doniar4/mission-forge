@@ -17,13 +17,23 @@ export function AccountButton() {
         <span className="account-name">{account.name}</span>
       </button>
     );
+  // Two clear doors: sign in for returning players, sign up for new ones.
+  const open = (intent: 'in' | 'up') => {
+    useAuth.setState({ intent });
+    goto('auth');
+  };
   return (
-    <button type="button" className="account-btn" data-state="guest" onClick={() => goto('auth')}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-      </svg>
-      <span>{t('Войти', 'Sign in')}</span>
-    </button>
+    <div className="account-pair">
+      <button type="button" className="account-btn" data-state="guest" onClick={() => open('in')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+        <span>{t('Войти', 'Sign in')}</span>
+      </button>
+      <button type="button" className="account-btn account-signup" onClick={() => open('up')}>
+        {t('Зарегистрироваться', 'Sign up')}
+      </button>
+    </div>
   );
 }

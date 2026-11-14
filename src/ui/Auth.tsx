@@ -35,8 +35,8 @@ const STRENGTH: L[] = [
 export function Auth() {
   const t = useT();
   const goto = useStore((s) => s.goto);
-  const { status, account, recovering } = useAuth();
-  const [mode, setMode] = useState<Mode>(recovering ? 'reset' : 'in');
+  const { status, account, recovering, intent } = useAuth();
+  const [mode, setMode] = useState<Mode>(recovering ? 'reset' : intent);
   useEffect(() => {
     if (recovering) setMode('reset');
   }, [recovering]);
@@ -274,7 +274,7 @@ function Forms({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
 
   const label: Record<Mode, string> = {
     in: t('Войти', 'Sign in'),
-    up: t('Создать аккаунт', 'Create account'),
+    up: t('Зарегистрироваться', 'Sign up'),
     forgot: t('Прислать ссылку', 'Send the link'),
     reset: t('Сохранить пароль', 'Save the password'),
   };
@@ -345,6 +345,15 @@ function Forms({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
           <path d="M5 12h14M13 6l6 6-6 6" />
         </svg>
       </button>
+
+      {(mode === 'in' || mode === 'up') && (
+        <p className="auth-switch">
+          {mode === 'in' ? t('Нет аккаунта?', 'No account yet?') : t('Уже есть аккаунт?', 'Already have an account?')}
+          <button type="button" className="auth-switch-btn" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
+            {mode === 'in' ? t('Зарегистрироваться', 'Sign up') : t('Войти', 'Sign in')}
+          </button>
+        </p>
+      )}
 
       <div className="auth-links">
         {mode === 'in' && (
