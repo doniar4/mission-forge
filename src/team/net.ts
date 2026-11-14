@@ -83,6 +83,8 @@ function apply(s: TeamState) {
       const sim = simulate(s.design, scenarioById(s.scenarioId), s.difficulty, s.seed);
       useStore.setState({ sim, screen: 'flight' });
     }
+  } else if (s.phase === 'dev') {
+    if (screen !== 'dev') useStore.setState({ sim: null, screen: 'dev' });
   } else if (s.phase === 'design') {
     lastLaunch = '';
     if (screen !== 'studio') useStore.setState({ sim: null, screen: 'studio' });
@@ -108,6 +110,7 @@ function register() {
   setTeamHooks({
     patch: (patch: Partial<Design>) => teamSend({ t: 'patch', patch }),
     toggle: (id: string) => teamSend({ t: 'toggle', id }),
+    dev: (i: number, choice: string) => teamSend({ t: 'dev', i, choice }),
     relaunch: () => teamSend({ t: 'relaunch' }),
     back: () => teamSend({ t: 'back' }),
     leave: () => leaveRoom(),

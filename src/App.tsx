@@ -3,6 +3,7 @@ import { useStore } from './store';
 import { Flight } from './ui/Flight';
 import { Home } from './ui/Home';
 import { Debrief } from './ui/Debrief';
+import { Development } from './ui/Development';
 import { Studio } from './ui/Studio';
 import { Lobby } from './ui/Team';
 
@@ -33,6 +34,7 @@ export function App() {
 
   if (screen === 'lobby' && inTeam) return <Lobby />;
   if (screen === 'studio') return <Studio />;
+  if (screen === 'dev') return <Development />;
   if (screen === 'flight' && sim) return <Flight />;
   if (screen === 'report' && sim) return <Debrief />;
   return <Home />;
