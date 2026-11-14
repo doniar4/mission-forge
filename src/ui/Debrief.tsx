@@ -8,7 +8,7 @@ import { useT } from '../i18n';
 import { useDesign, useStore } from '../store';
 import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
-import { Spacecraft } from './Spacecraft';
+import { Craft3D } from './Craft3D';
 
 export function Debrief() {
   const t = useT();
@@ -169,7 +169,7 @@ export function Debrief() {
 
           <section className="block">
             <h2>{t('Аппарат', 'The spacecraft')}</h2>
-            <Spacecraft design={design} ev={ev} />
+            <Craft3D design={design} ev={ev} />
           </section>
 
           <section className="block">

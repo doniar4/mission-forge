@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Body, L, Role } from '../engine/types';
 import { useT } from '../i18n';
 import { useStore } from '../store';
@@ -115,6 +115,20 @@ export function Gauge({
   digits?: number;
 }) {
   const t = useT();
+  // What the last decision did to this resource, shown for a moment: every choice has a price.
+  const before = useRef({ used, limit });
+  const [change, setChange] = useState<{ value: number; of: 'used' | 'limit' } | null>(null);
+  useEffect(() => {
+    const dUsed = used - before.current.used;
+    const dLimit = limit - before.current.limit;
+    before.current = { used, limit };
+    const scale = Math.max(Math.abs(used), Math.abs(limit), 1);
+    const next = Math.abs(dUsed) > scale * 0.004 ? { value: dUsed, of: 'used' as const } : Math.abs(dLimit) > scale * 0.004 ? { value: dLimit, of: 'limit' as const } : null;
+    if (!next) return;
+    setChange(next);
+    const id = setTimeout(() => setChange(null), 2600);
+    return () => clearTimeout(id);
+  }, [used, limit]);
   // Tiny limits (a 0.03 GB/day link) must not round down to a misleading zero.
   if (limit > 0 && limit < 1) digits = Math.max(digits, 2);
   const ratio = limit > 0 ? used / limit : used > 0 ? 2 : 0;
@@ -122,7 +136,16 @@ export function Gauge({
   return (
     <div className="gauge" data-state={state}>
       <div className="gauge-row">
-        <span className="gauge-label">{label}</span>
+        <span className="gauge-label">
+          {label}
+          {change && Number.isFinite(change.value) && (
+            <span className="gauge-delta" data-good={change.of === 'limit' ? change.value > 0 : change.value < 0}>
+              {change.of === 'limit' ? t('предел ', 'limit ') : ''}
+              {change.value > 0 ? '+' : '−'}
+              {t.n(Math.abs(change.value), Math.abs(change.value) < 10 ? Math.max(digits, 1) : digits)}
+            </span>
+          )}
+        </span>
         <span className="gauge-value">
           {t.n(used, digits)} <span className="of">/ {limit > 0 ? t.n(limit, digits) : '—'} {unit}</span>
         </span>
