@@ -127,7 +127,7 @@ export interface Card {
   tier?: { level: 1 | 2 | 3; name: string };
   stats: { label: string; value: string }[];
   /** Tags such as measurements; `good` marks what the mission needs. */
-  tags?: { text: string; good?: boolean }[];
+  tags?: { text: string; good?: boolean; key?: boolean }[];
   /** A short line from the mission's point of view (orbit fit). */
   note?: string;
   /** Present but not allowed (e.g. a rocket that cannot reach the orbit). */
@@ -224,6 +224,8 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
     case 'payload': {
       // One tab per class: cheap and light, the working standard, the best money can buy.
       const useful = (i: (typeof INSTRUMENTS)[number]) => (Object.keys(i.measures) as Measure[]).reduce((a, m) => a + (sc.weights[m] ?? 0) * i.measures[m]!, 0);
+      // A beginner's signpost: instruments that do a main job of this mission well, and ones it does not need at all.
+      const key = (i: (typeof INSTRUMENTS)[number]) => !sc.sandbox && (Object.keys(i.measures) as Measure[]).some((m) => (sc.weights[m] ?? 0) >= 0.2 && i.measures[m]! >= 0.4);
       const HINT: Record<1 | 2 | 3, L> = {
         1: { ru: 'Дёшево и легко: хватит примерно на половину цели.', en: 'Cheap and light: good for about half the goal.' },
         2: { ru: 'Рабочий стандарт: набор таких приборов выполняет цель.', en: 'The working standard: a set of these meets the goal.' },
@@ -241,6 +243,7 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
           cards: list.map((i) => ({
             ...base(i.id, i.name, { ru: withoutClass(i.desc.ru), en: withoutClass(i.desc.en) }, `inst_${i.id}`),
             tier: { level: i.tier, name: t(TIERS[i.tier]) },
+            note: !sc.sandbox && useful(i) === 0 ? t('Этой миссии он не нужен.', 'This mission does not need it.') : undefined,
             stats: [
               { label: t('Масса', 'Mass'), value: kg(i.mass, i.mass < 1 ? 1 : 0) },
               { label: t('Мощность', 'Power'), value: w(i.power) },
@@ -249,6 +252,7 @@ export function groupsFor(section: SectionId, { t, design, ev, sc, advanced }: C
             ],
             // Only what this mission measures, and the one demand that changes the platform.
             tags: [
+              ...(key(i) ? [{ text: t('Ключевой для задачи', 'Key for this mission'), key: true }] : []),
               ...(Object.keys(i.measures) as Measure[])
                 .filter((m) => sc.sandbox || (sc.weights[m] ?? 0) > 0)
                 .map((m) => ({ text: t(MEASURES[m]), good: !sc.sandbox })),
