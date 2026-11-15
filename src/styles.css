@@ -1506,6 +1506,26 @@ select:focus {
   border-color: rgba(240, 200, 105, 0.4);
   color: var(--gold-ink);
 }
+/* Beside the name, so it shows in every card layout: the one signpost a beginner needs among
+   thirty instruments, and the quiet note on the ones this mission does not use. */
+.part-key,
+.part-skip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.part-key {
+  border: 1px solid var(--orange);
+  background: rgba(255, 107, 44, 0.14);
+  color: var(--orange-ink);
+}
+.part-skip {
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  font-weight: 500;
+}
 .part-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

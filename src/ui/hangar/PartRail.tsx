@@ -144,11 +144,13 @@ export function PartRail({
                 </span>
               )}
               <span>{card.name}</span>
+              {card.tags?.find((g) => g.key) && <span className="part-key">{card.tags.find((g) => g.key)!.text}</span>}
+              {!card.tags?.some((g) => g.key) && card.note && card.tier && <span className="part-skip">{card.note}</span>}
               {on && <span className="part-state">{multi ? t('на борту', 'on board') : t('установлено', 'fitted')}</span>}
             </div>
             <p className="part-desc" title={card.desc}>
               {card.desc}
-              {card.note && <span className="rail-note"> {card.note}</span>}
+              {card.note && !card.tier && <span className="rail-note"> {card.note}</span>}
             </p>
             <div className="part-facts">
               {card.stats.length > 0 && (
@@ -169,7 +171,7 @@ export function PartRail({
                 {card.tags
                   .filter((g) => g.good)
                   .map((g) => (
-                    <span key={g.text} data-good>
+                    <span key={g.text} data-good data-key={g.key || undefined}>
                       {g.text}
                     </span>
                   ))}
