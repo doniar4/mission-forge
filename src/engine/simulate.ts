@@ -1,6 +1,6 @@
 import { DIFFICULTY } from './catalog';
 import { scienceYears, evaluate, performance, resolve, type FlightState, type Flying } from './evaluate';
-import type { Choices, Crisis, CrisisKind, Design, Difficulty, L, MonthRecord, Scenario, SimEvent, SimResult } from './types';
+import type { Choices, Crisis, CrisisKind, Design, Difficulty, L, MonthRecord, Role, Scenario, SimEvent, SimResult } from './types';
 
 /** Small deterministic random generator: the same seed always replays the same mission. */
 export function mulberry32(seed: number) {
@@ -19,6 +19,20 @@ export const CRISIS_OPTIONS: Record<CrisisKind, string[]> = {
   storm: ['safe', 'observe'],
   drift: ['recalibrate', 'carry_on'],
   budget: ['fewer_passes', 'end_early'],
+  outage: ['store', 'reroute'],
+  debris: ['dodge', 'hold'],
+};
+
+/**
+ * Whose call each decision is. Everyone votes, but in a team the lead's vote breaks a tie, so every
+ * role gets its moment in flight.
+ */
+export const CRISIS_LEAD: Record<CrisisKind, Role> = {
+  storm: 'engineer',
+  drift: 'science',
+  budget: 'manager',
+  outage: 'comms',
+  debris: 'engineer',
 };
 /**
  * What the decisions cost and pay. The cautious options are cheap on purpose: a well-built
@@ -33,23 +47,38 @@ export const STORM_KEEP = 1;
 export const STORM_BONUS = 2.2;
 export const PASSES_KEPT = 0.96;
 export const EARLY_END_KEEP = 0.7;
+/** A ground station is down this many days; what does not fit in onboard storage is lost. */
+export const OUTAGE_DAYS = 12;
+/** Borrowed antennas work, but a command slip on an unfamiliar station costs a month this often. */
+export const REROUTE_SLIP = 0.25;
+/** A collision-avoidance burn: instruments off for a few days, then back to work. */
+export const DODGE_KEEP = 0.85;
+/** Chance a fragment hits if the team holds its course, costing an instrument. */
+export const DEBRIS_HIT = 0.12;
+
+/** Share of an outage's data that fits on board: 1 when storage holds every day of it. */
+export const outageKept = (storageGb: number, perDayGb: number) => (perDayGb <= 0 ? 1 : Math.min(1, storageGb / (perDayGb * OUTAGE_DAYS)));
 
 /**
  * When the mission team will face a decision, and which. Drawn from its own generator so the
  * rest of the flight is the same whatever is decided before that moment.
  */
-function crisisPlan(seed: number, planned: number, diff: Difficulty): { kind: CrisisKind; m: number }[] {
+function crisisPlan(seed: number, planned: number, diff: Difficulty, debris: boolean): { kind: CrisisKind; m: number }[] {
   if (planned < 6) return [];
   const crng = mulberry32((seed ^ 0x5bd1e995) >>> 0);
-  const kinds: CrisisKind[] = ['storm', 'drift', 'budget'];
+  // A dodge needs an engine and a crowded orbit; the rest can come up on any mission.
+  const kinds: CrisisKind[] = ['storm', 'drift', 'budget', 'outage', ...(debris ? (['debris'] as CrisisKind[]) : [])];
   for (let i = kinds.length - 1; i > 0; i--) {
     const j = Math.floor(crng() * (i + 1));
     [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
   }
   const first = Math.max(2, Math.round(planned * (0.22 + 0.12 * crng())));
   const second = Math.round(planned * (0.58 + 0.14 * crng()));
+  const third = Math.round(planned * (0.84 + 0.08 * crng()));
   const out = [{ kind: kinds[0], m: first }];
   if (diff !== 'cadet' && planned >= 10 && second > first + 2) out.push({ kind: kinds[1], m: second });
+  // Long missions meet a third decision, so every role tends to get one.
+  if (diff !== 'cadet' && planned >= 30 && out.length === 2 && third > second + 2 && third < planned) out.push({ kind: kinds[2], m: third });
   return out;
 }
 
@@ -134,7 +163,7 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
   let warnedPower = false;
   let warnedData = false;
   // Decisions in flight: their schedule, their own dice, and what they leave behind.
-  const plan = crisisPlan(seed, planned, diff);
+  const plan = crisisPlan(seed, planned, diff, orbit.body === 'earth' && prop.isp > 0);
   const crng = mulberry32((seed ^ 0x2545f491) >>> 0);
   let quality = 1;
   let contactCut = 1;
@@ -208,6 +237,49 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
             en: `The passes stay, but the mission will end ${planned - end} months ahead of plan.`,
           });
         }
+      } else if (due.kind === 'outage') {
+        if (picked === 'store') {
+          const kept = outageKept(ev.data.storage, ev.data.generated);
+          boost *= 1 - (1 - kept) * (OUTAGE_DAYS / 30);
+          if (kept >= 1)
+            say(t, 'info', { ru: 'Решение: копить данные на борту', en: 'Decision: hold the data on board' }, {
+              ru: `Станция молчала ${OUTAGE_DAYS} дней, но памяти хватило на всё: данные ушли на Землю, как только связь вернулась.`,
+              en: `The station was silent for ${OUTAGE_DAYS} days, but storage held it all: the data went home as soon as the link came back.`,
+            });
+          else
+            say(t, 'warn', { ru: 'Решение: копить данные — память переполнилась', en: 'Decision: hold the data — storage overflowed' }, {
+              ru: `Память вместила только ${Math.round(kept * 100)}% данных за ${OUTAGE_DAYS} дней без связи, остальное перезаписано.`,
+              en: `Storage held only ${Math.round(kept * 100)}% of ${OUTAGE_DAYS} days of data without a link; the rest was overwritten.`,
+            });
+        } else if (crng() < REROUTE_SLIP) {
+          boost = 0;
+          say(t, 'bad', { ru: 'Решение: чужие антенны — сбой команды', en: 'Decision: borrowed antennas — a command slip' }, {
+            ru: 'Незнакомая станция отправила команду не в том формате. Аппарат ушёл в безопасный режим, и месяц науки пропал.',
+            en: 'The unfamiliar station sent a command in the wrong format. The spacecraft went into safe mode and a month of science was lost.',
+          });
+        } else
+          say(t, 'good', { ru: 'Решение: чужие антенны — данные дошли', en: 'Decision: borrowed antennas — the data got home' }, {
+            ru: 'Партнёрские станции приняли все сеансы, пока своя была в ремонте. Ни одного кадра не потеряно.',
+            en: 'Partner stations took every pass while yours was being repaired. Not a single frame was lost.',
+          });
+      } else if (due.kind === 'debris') {
+        if (picked === 'dodge') {
+          boost *= DODGE_KEEP;
+          say(t, 'info', { ru: 'Решение: увернуться от обломка', en: 'Decision: dodge the fragment' }, {
+            ru: 'Двигатель поднял орбиту на сотню метров. Обломок прошёл мимо; несколько дней приборы были выключены на время манёвра.',
+            en: 'The engine raised the orbit by a hundred metres. The fragment passed by; the instruments were off for a few days during the burn.',
+          });
+        } else if (state.active.length > 0 && crng() < DEBRIS_HIT) {
+          const gone = state.active.splice(Math.floor(crng() * state.active.length), 1)[0];
+          say(t, 'bad', { ru: 'Решение: не уворачиваться — попадание', en: 'Decision: hold course — a hit' }, {
+            ru: `Осколок размером с горошину пробил кабель прибора «${gone.name.ru}». Аппарат цел, прибор потерян.`,
+            en: `A pea-sized fragment cut the cable of ${gone.name.en}. The spacecraft survived; the instrument did not.`,
+          });
+        } else
+          say(t, 'good', { ru: 'Решение: не уворачиваться — пронесло', en: 'Decision: hold course — a clean miss' }, {
+            ru: 'Обломок прошёл в паре километров. Приборы не прерывали съёмку ни на час.',
+            en: 'The fragment passed a couple of kilometres away. The instruments never stopped for an hour.',
+          });
       }
     }
 

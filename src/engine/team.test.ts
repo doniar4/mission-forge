@@ -13,9 +13,10 @@ function room(): TeamState {
   s = send(s, 'p1', { t: 'hello', name: 'Boris' });
   s = send(s, 'p2', { t: 'hello', name: 'Clara' });
   s = send(s, 'host', { t: 'claim', role: 'manager' });
-  s = send(s, 'host', { t: 'claim', role: 'comms' });
   s = send(s, 'p1', { t: 'claim', role: 'science' });
   s = send(s, 'p2', { t: 'claim', role: 'engineer' });
+  // Everyone has a role, so the host may now take the fourth.
+  s = send(s, 'host', { t: 'claim', role: 'comms' });
   return send(s, 'host', { t: 'start' });
 }
 
@@ -42,11 +43,28 @@ function solve(s: TeamState): TeamState {
 }
 
 describe('team room', () => {
-  it('holds at most three people', () => {
+  it('holds at most four people, one per role', () => {
     let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
     for (const id of ['a', 'b', 'c', 'd']) s = send(s, id, { t: 'hello', name: id });
-    expect(TEAM_MAX).toBe(3);
-    expect(s.members.map((m) => m.id)).toEqual(['host', 'a', 'b']);
+    expect(TEAM_MAX).toBe(4);
+    expect(TEAM_MAX).toBe(ROLE_LIST.length);
+    expect(s.members.map((m) => m.id)).toEqual(['host', 'a', 'b', 'c']);
+  });
+
+  it('gives four players one role each on auto-assign', () => {
+    let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
+    for (const id of ['a', 'b', 'c']) s = send(s, id, { t: 'hello', name: id });
+    s = send(s, 'host', { t: 'auto' });
+    expect(s.members.map((m) => rolesOf(s, m.id).length)).toEqual([1, 1, 1, 1]);
+  });
+
+  it('lets nobody take a second role while a teammate has none', () => {
+    let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
+    s = send(s, 'p1', { t: 'hello', name: 'Boris' });
+    s = send(s, 'host', { t: 'claim', role: 'manager' });
+    expect(send(s, 'host', { t: 'claim', role: 'comms' })).toBe(s);
+    s = send(s, 'p1', { t: 'claim', role: 'science' });
+    expect(rolesOf(send(s, 'host', { t: 'claim', role: 'comms' }), 'host')).toEqual(['manager', 'comms']);
   });
 
   it('gives each role to one person only', () => {
@@ -200,9 +218,9 @@ describe('team room', () => {
     let s = initialTeam('ABCDE', 'local', 'firewatch', 'engineer', 'Anna');
     s = send(s, 'p1', { t: 'hello', name: 'Boris' });
     s = send(s, 'host', { t: 'claim', role: 'manager' });
+    s = send(s, 'p1', { t: 'claim', role: 'engineer' });
     s = send(s, 'host', { t: 'claim', role: 'comms' });
     s = send(s, 'host', { t: 'claim', role: 'science' });
-    s = send(s, 'p1', { t: 'claim', role: 'engineer' });
     s = send(s, 'host', { t: 'start' });
     s = send(s, 'host', { t: 'patch', patch: { orbit: 'sso', instruments: ['thermal_ir', 'cam_wide'], comms: 'xband', ground: 'network', computer: 'standard', vehicle: 'rideshare', lifeYears: 4 } });
     s = send(s, 'p1', { t: 'patch', patch: { power: 'small', battery: 'b500', adcs: 'wheels', propulsion: 'mono' } });
@@ -292,9 +310,24 @@ describe('decisions in flight, voted by the team', () => {
     expect(tally(['recalibrate', 'carry_on'], {})).toBe('recalibrate');
   });
 
+  it('gives the lead of a decision the casting vote in a tie', () => {
+    expect(tally(['safe', 'observe'], { a: 'safe', b: 'observe' }, 'b')).toBe('observe');
+    // The lead's vote only breaks a tie; it does not outweigh a majority.
+    expect(tally(['safe', 'observe'], { a: 'safe', b: 'observe', c: 'safe' }, 'b')).toBe('safe');
+    // A lead who did not vote leaves the tie to the cautious option.
+    expect(tally(['safe', 'observe'], { a: 'safe', b: 'observe' }, 'z')).toBe('safe');
+    // In the room: a ground-station outage is the comms engineer's call (the host holds comms).
+    let s = flying();
+    s = send(s, 'host', { t: 'vote', id: 'outage-9', option: 'reroute' });
+    s = send(s, 'p1', { t: 'vote', id: 'outage-9', option: 'store' });
+    s = send(s, 'host', { t: 'close', id: 'outage-9' });
+    expect(s.choices['outage-9']).toBe('reroute');
+  });
+
   it('refuses votes for unknown crises, unknown options and outside the flight', () => {
     const s = flying();
     expect(send(s, 'p1', { t: 'vote', id: 'meteor-3', option: 'safe' })).toBe(s);
+    expect(send(s, 'p1', { t: 'vote', id: 'constructor-3', option: 'safe' })).toBe(s);
     expect(send(s, 'p1', { t: 'vote', id: 'storm-3', option: 'run' })).toBe(s);
     const designing = solve(room());
     expect(send(designing, 'p1', { t: 'vote', id: 'storm-3', option: 'safe' })).toBe(designing);

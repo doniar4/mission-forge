@@ -487,31 +487,31 @@ export const POWER: PowerSource[] = [
     id: 'small',
     name: { ru: 'Малые раскрывающиеся панели', en: 'Small deployable arrays' },
     desc: { ru: 'Два небольших крыла.', en: 'Two small wings.' },
-    mass: 10, power: 0, cost: 0.4, watts: 250, solar: true,
+    mass: 5, power: 0, cost: 0.4, watts: 250, solar: true,
   },
   {
     id: 'medium',
     name: { ru: 'Средние панели', en: 'Medium arrays' },
     desc: { ru: 'Стандарт для научных спутников.', en: 'The standard for science satellites.' },
-    mass: 28, power: 0, cost: 1.2, watts: 800, solar: true,
+    mass: 16, power: 0, cost: 1.2, watts: 800, solar: true,
   },
   {
     id: 'large',
     name: { ru: 'Большие панели', en: 'Large arrays' },
     desc: { ru: 'Для радаров и дальних полётов, где Солнце светит слабее.', en: 'For radars and distant flights where sunlight is weaker.' },
-    mass: 75, power: 0, cost: 3, watts: 2500, solar: true,
+    mass: 40, power: 0, cost: 3, watts: 2500, solar: true,
   },
   {
     id: 'xl',
     name: { ru: 'Сверхбольшие панели', en: 'Extra-large arrays' },
     desc: { ru: 'Размах с теннисный корт. Мощно, тяжело, дорого.', en: 'A wingspan the size of a tennis court. Powerful, heavy, expensive.' },
-    mass: 160, power: 0, cost: 7, watts: 6000, solar: true, advanced: true,
+    mass: 90, power: 0, cost: 7, watts: 6000, solar: true, advanced: true,
   },
   {
     id: 'rtg',
     name: { ru: 'Радиоизотопный генератор', en: 'Radioisotope generator (RTG)' },
     desc: { ru: 'Тепло распада плутония превращается в электричество. Работает в тени и вдали от Солнца, но стоит очень дорого.', en: 'Turns the heat of decaying plutonium into electricity. Works in shadow and far from the Sun, at a very high price.' },
-    mass: 55, power: 0, cost: 90, watts: 300, solar: false, advanced: true, devMonths: 12,
+    mass: 55, power: 0, cost: 110, watts: 300, solar: false, advanced: true, devMonths: 12,
   },
 ];
 
@@ -645,8 +645,8 @@ export const PROPULSION: Propulsion[] = [
   },
   {
     id: 'ion',
-    name: { ru: 'Ионный двигатель', en: 'Ion engine' },
-    desc: { ru: 'Топлива нужно в разы меньше, но тяга — как вес листа бумаги: перелёт длится дольше и требует 1 500 Вт.', en: 'Needs several times less propellant, but pushes with the weight of a sheet of paper: the trip takes longer and needs 1,500 W.' },
+    name: { ru: 'Электрический (холловский) двигатель', en: 'Electric (Hall-effect) thruster' },
+    desc: { ru: 'Разгоняет ксенон электрическим полем: топлива нужно в разы меньше, но тяга — как вес листа бумаги. Перелёт длится дольше и требует 1 500 Вт.', en: 'Accelerates xenon with an electric field: several times less propellant, but it pushes with the weight of a sheet of paper. The trip takes longer and needs 1,500 W.' },
     mass: 45, power: 0, cost: 5, isp: 1600, maxProp: null, needsWatts: 1500, lowThrust: true, advanced: true, devMonths: 6,
   },
 ];
@@ -673,8 +673,8 @@ export const VEHICLES: Vehicle[] = [
   {
     id: 'rideshare',
     name: { ru: 'Попутный запуск', en: 'Rideshare slot' },
-    desc: { ru: 'Место на чужой ракете: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную орбиту и с ожиданием очереди.', en: 'A seat on someone else’s rocket: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous orbit, after waiting in line.' },
-    leoKg: 267, cost: 0.35, baseKg: 50, costPerKg: 0.007, reliability: 0.97, reach: ['sso'], leadMonths: 6,
+    desc: { ru: 'Место на чужой ракете: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную или низкую наклонную орбиту, куда летят все, и с ожиданием очереди.', en: 'A seat on someone else’s rocket: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous or low inclined orbit, where everyone else goes, after waiting in line.' },
+    leoKg: 267, cost: 0.35, baseKg: 50, costPerKg: 0.007, reliability: 0.97, reach: ['sso', 'leo'], leadMonths: 6,
   },
   {
     id: 'kolibri',
@@ -692,7 +692,7 @@ export const VEHICLES: Vehicle[] = [
     id: 'atlant',
     name: { ru: '«Атлант», средняя', en: 'Atlant, medium launcher' },
     desc: { ru: 'Главная ракета научных миссий: летит куда угодно.', en: 'The mainstay of science missions: goes anywhere.' },
-    leoKg: 8000, cost: 45, reliability: 0.97, reach: ALL, leadMonths: 3,
+    leoKg: 8000, cost: 55, reliability: 0.97, reach: ALL, leadMonths: 3,
   },
   {
     id: 'titan',

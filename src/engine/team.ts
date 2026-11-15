@@ -2,11 +2,11 @@ import { sanitize } from './design';
 import { chooseDev, devDone, devStarted, makeDev } from './development';
 import { evaluate } from './evaluate';
 import { SCENARIOS, emptyDesign, scenarioById } from './scenarios';
-import { CRISIS_OPTIONS } from './simulate';
+import { CRISIS_LEAD, CRISIS_OPTIONS } from './simulate';
 import type { Choices, CrisisKind, Design, Difficulty, Evaluation, L, Measure, Role, Scenario } from './types';
 
-/** Three people is the sweet spot: four roles, so someone always holds two and has to weigh them against each other. */
-export const TEAM_MAX = 3;
+/** Four people, four roles: each player owns one. With fewer, someone holds two and weighs them against each other. */
+export const TEAM_MAX = 4;
 export const ROLE_LIST: Role[] = ['manager', 'science', 'engineer', 'comms'];
 
 /** Which parts of the design each role is allowed to change. */
@@ -127,25 +127,41 @@ function fillRoles(own: Record<Role, string | null>, members: Member[]): Record<
 /** A new flight from a new seed: decisions and votes of the last one no longer apply. */
 const fly = (s: TeamState, design: Design, seed: number): TeamState => ({ ...s, design, phase: 'flight', seed, choices: {}, votes: {} });
 
-/** Crisis ids are `${kind}-${month}`; the options are fixed per kind. */
-function optionsFor(id: unknown): string[] | null {
+/** Crisis ids are `${kind}-${month}`; the kind fixes the options. */
+function kindOf(id: unknown): CrisisKind | null {
   if (typeof id !== 'string') return null;
-  const m = id.match(/^(storm|drift|budget)-(\d{1,3})$/);
-  return m ? CRISIS_OPTIONS[m[1] as CrisisKind] : null;
+  const m = id.match(/^([a-z]+)-(\d{1,3})$/);
+  // Own keys only: an id like `constructor-3` must not reach Object's prototype.
+  return m && Object.prototype.hasOwnProperty.call(CRISIS_OPTIONS, m[1]) ? (m[1] as CrisisKind) : null;
 }
+const optionsFor = (id: unknown): string[] | null => {
+  const k = kindOf(id);
+  return k ? CRISIS_OPTIONS[k] : null;
+};
 
 /**
- * The team's decision from its votes: the option most voted for; a tie, or no votes at all,
- * goes to the cautious option (listed first), as a real flight team defaults to safety.
+ * The team's decision from its votes: the option most voted for. In a tie the lead of this decision
+ * (see CRISIS_LEAD) has the casting vote, if they voted for one of the tied options; otherwise, or
+ * with no votes at all, the cautious option (listed first) wins, as a real flight team defaults to safety.
  */
-export function tally(options: string[], votes: Record<string, string>): string {
+export function tally(options: string[], votes: Record<string, string>, lead?: string | null): string {
   const count = (o: string) => Object.values(votes).filter((v) => v === o).length;
-  return options.reduce((best, o) => (count(o) > count(best) ? o : best), options[0]);
+  const top = Math.max(0, ...options.map(count));
+  const tied = options.filter((o) => count(o) === top);
+  if (tied.length === 1) return tied[0];
+  const casting = lead ? votes[lead] : undefined;
+  return casting && tied.includes(casting) ? casting : options[0];
 }
+
+/** Who has the casting vote on a decision: the member holding its lead role. */
+export const leadOf = (s: TeamState, id: string): string | null => {
+  const k = kindOf(id);
+  return k ? s.owners[CRISIS_LEAD[k]] : null;
+};
 
 function decideVote(s: TeamState, id: string, options: string[]): TeamState {
   const { [id]: votes = {}, ...open } = s.votes;
-  return { ...s, choices: { ...s.choices, [id]: tally(options, votes) }, votes: open };
+  return { ...s, choices: { ...s.choices, [id]: tally(options, votes, leadOf(s, id)) }, votes: open };
 }
 
 /**
@@ -194,6 +210,8 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
     }
     case 'claim': {
       if (s.phase === 'flight' || !ROLE_LIST.includes(msg.role) || s.owners[msg.role] !== null) return s;
+      // A second role only once everyone has one: nobody sits out while another player doubles up.
+      if (rolesOf(s, from).length > 0 && s.members.some((m) => rolesOf(s, m.id).length === 0)) return s;
       return { ...s, owners: { ...s.owners, [msg.role]: from }, ready: {} };
     }
     case 'release': {

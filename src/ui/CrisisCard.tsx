@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { DRIFT_QUALITY, EARLY_END_KEEP, PASSES_KEPT, RECAL_MONTHS, STORM_BONUS } from '../engine/simulate';
+import { CRISIS_LEAD, DEBRIS_HIT, DODGE_KEEP, DRIFT_QUALITY, EARLY_END_KEEP, OUTAGE_DAYS, PASSES_KEPT, RECAL_MONTHS, REROUTE_SLIP, STORM_BONUS, outageKept } from '../engine/simulate';
 import type { Crisis, CrisisKind, Evaluation, L } from '../engine/types';
 import { useT } from '../i18n';
+import { ROLES } from './common';
 
 interface Option {
   title: L;
@@ -17,6 +18,7 @@ function story(c: Crisis, ev: Evaluation, monthsLeft: number): { title: L; text:
   const exposed = ev.checks.some((x) => x.id === 'radiation');
   const linkBound = ev.data.returnFraction < 0.97;
   const name = c.instrument ?? { ru: 'прибор', en: 'an instrument' };
+  const kept = outageKept(ev.data.storage, ev.data.generated);
   const byKind: Record<CrisisKind, ReturnType<typeof story>> = {
     storm: {
       who: { ru: 'Служба космической погоды', en: 'Space weather desk' },
@@ -93,16 +95,70 @@ function story(c: Crisis, ev: Evaluation, monthsLeft: number): { title: L; text:
         },
       },
     },
+    outage: {
+      who: { ru: 'Наземный сегмент', en: 'Ground segment' },
+      title: { ru: 'Отказала наземная станция', en: 'A ground station is down' },
+      text: {
+        ru: `Главную антенну ждёт ремонт на ${OUTAGE_DAYS} дней. Можно копить данные в бортовой памяти или договориться о чужих станциях, с которыми команда ещё не работала.`,
+        en: `The main antenna is out for ${OUTAGE_DAYS} days of repairs. You can hold the data in onboard storage, or borrow partner stations the team has never worked with.`,
+      },
+      options: {
+        store: {
+          tone: 'safe',
+          title: { ru: 'Копить на борту', en: 'Hold it on board' },
+          effect: {
+            ru: kept >= 1 ? `Памяти хватает на все ${OUTAGE_DAYS} дней — ничего не потеряется.` : `Память вместит только ${pct(kept)}% — остальное перезапишется.`,
+            en: kept >= 1 ? `Storage holds all ${OUTAGE_DAYS} days — nothing is lost.` : `Storage holds only ${pct(kept)}% — the rest gets overwritten.`,
+          },
+        },
+        reroute: {
+          tone: 'bold',
+          title: { ru: 'Чужие антенны', en: 'Borrowed antennas' },
+          effect: {
+            ru: `Данные идут без перерыва, но с вероятностью ${pct(REROUTE_SLIP)}% незнакомая станция ошибётся с командой — и месяц науки пропадёт.`,
+            en: `Data keeps flowing, but there is a ${pct(REROUTE_SLIP)}% chance the unfamiliar station fumbles a command — and a month of science is lost.`,
+          },
+        },
+      },
+    },
+    debris: {
+      who: { ru: 'Служба контроля космического мусора', en: 'Space debris watch' },
+      title: { ru: 'Опасное сближение с обломком', en: 'A close approach with debris' },
+      text: {
+        ru: 'Обломок старой ракеты пройдёт рядом через сутки. Точность прогноза — сотни метров: может пронести, а может и нет.',
+        en: 'A fragment of an old rocket will pass close by tomorrow. The forecast is good to a few hundred metres: it may miss, or it may not.',
+      },
+      options: {
+        dodge: {
+          tone: 'safe',
+          title: { ru: 'Увернуться', en: 'Dodge' },
+          effect: {
+            ru: `Манёвр двигателем: приборы выключены на несколько дней, месяц даст ${pct(DODGE_KEEP)}% обычной науки.`,
+            en: `An engine burn: instruments off for a few days, the month returns ${pct(DODGE_KEEP)}% of the usual science.`,
+          },
+        },
+        hold: {
+          tone: 'bold',
+          title: { ru: 'Не менять курс', en: 'Hold course' },
+          effect: {
+            ru: `Ни дня простоя, но с вероятностью ${pct(DEBRIS_HIT)}% осколок выведет из строя один прибор до конца миссии (${monthsLeft} мес.).`,
+            en: `No downtime, but a ${pct(DEBRIS_HIT)}% chance a fragment knocks out one instrument for the rest of the mission (${monthsLeft} months).`,
+          },
+        },
+      },
+    },
   };
   return byKind[c.kind];
 }
 
-export const CRISIS_TITLE = (c: Crisis): L =>
-  c.kind === 'storm'
-    ? { ru: 'Солнечная буря', en: 'Solar storm' }
-    : c.kind === 'drift'
-      ? { ru: 'Уход калибровки', en: 'Calibration drift' }
-      : { ru: 'Урезан бюджет', en: 'Budget cut' };
+const TITLES: Record<CrisisKind, L> = {
+  storm: { ru: 'Солнечная буря', en: 'Solar storm' },
+  drift: { ru: 'Уход калибровки', en: 'Calibration drift' },
+  budget: { ru: 'Урезан бюджет', en: 'Budget cut' },
+  outage: { ru: 'Отказ наземной станции', en: 'Ground station outage' },
+  debris: { ru: 'Сближение с обломком', en: 'Debris approach' },
+};
+export const CRISIS_TITLE = (c: Crisis): L => TITLES[c.kind];
 
 /** How long a team has to vote before the host closes the vote. */
 export const VOTE_SECONDS = 30;
@@ -114,6 +170,8 @@ export interface Ballot {
   votes: { name: string; option: string }[];
   /** People in the room: everyone votes, whatever their roles. */
   total: number;
+  /** Who holds this decision's lead role and so breaks a tie. */
+  lead?: string;
 }
 
 /** Seconds left of the team's vote, counted from when this screen reached the decision. */
@@ -146,6 +204,10 @@ export function CrisisCard({ crisis, ev, monthsLeft, team, onPick }: { crisis: C
         <span className="crisis-from">
           <i aria-hidden="true" />
           {t(s.who)} · {t(`месяц ${crisis.month}`, `month ${crisis.month}`)} · {t('миссия на паузе', 'mission paused')}
+        </span>
+        <span className="crisis-lead" data-role={CRISIS_LEAD[crisis.kind]}>
+          {t('Решение за ролью', 'Lead role')}: <b>{t(ROLES[CRISIS_LEAD[crisis.kind]].name)}</b>
+          {team?.lead && ` · ${team.lead}`}
         </span>
         <h2 id="crisis-title">{t(s.title)}</h2>
         <p id="crisis-text">{t(s.text)}</p>
@@ -180,8 +242,8 @@ export function CrisisCard({ crisis, ev, monthsLeft, team, onPick }: { crisis: C
         {team && (
           <p className="crisis-vote" role="status">
             {t(
-              `Голосует команда: ${team.votes.length} из ${team.total}. Осталось ${left} с. При ничьей — осторожный вариант.`,
-              `Team vote: ${team.votes.length} of ${team.total} in. ${left} s left. A tie goes to the cautious option.`,
+              `Голосует команда: ${team.votes.length} из ${team.total}. Осталось ${left} с. При ничьей решает ${team.lead ?? 'ведущая роль'}, если не голосовал(а) — осторожный вариант.`,
+              `Team vote: ${team.votes.length} of ${team.total} in. ${left} s left. In a tie ${team.lead ?? 'the lead role'} decides; without their vote, the cautious option wins.`,
             )}
           </p>
         )}
