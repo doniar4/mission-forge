@@ -28,16 +28,25 @@ import type { Translator } from '../../i18n';
 
 export type SectionId = 'brief' | 'orbit' | 'rocket' | 'payload' | 'power' | 'platform' | 'comms' | 'plan';
 
-export const SECTIONS: { id: SectionId; role: Role; name: L; focus: string[] }[] = [
-  { id: 'brief', role: 'manager', name: { ru: 'Задача', en: 'Objective' }, focus: [] },
-  { id: 'orbit', role: 'science', name: { ru: 'Орбита', en: 'Orbit' }, focus: [] },
+/** The four segments of a space mission, as mission architecture names them. */
+export const SEGMENTS: Record<'user' | 'space' | 'launch' | 'ground', L> = {
+  user: { ru: 'Пользователь', en: 'User' },
+  space: { ru: 'Космос', en: 'Space' },
+  launch: { ru: 'Запуск', en: 'Launch' },
+  ground: { ru: 'Земля', en: 'Ground' },
+};
+
+export const SECTIONS: { id: SectionId; role: Role; name: L; focus: string[]; segment: keyof typeof SEGMENTS }[] = [
+  // The customer and what they need: the user segment.
+  { id: 'brief', role: 'manager', name: { ru: 'Задача', en: 'Objective' }, focus: [], segment: 'user' },
+  { id: 'orbit', role: 'science', name: { ru: 'Орбита', en: 'Orbit' }, focus: [], segment: 'space' },
   // The rocket comes before the spacecraft: it sets the mass limit everything else has to fit.
-  { id: 'rocket', role: 'manager', name: { ru: 'Ракета', en: 'Rocket' }, focus: [] },
-  { id: 'payload', role: 'science', name: { ru: 'Приборы', en: 'Instruments' }, focus: ['inst:'] },
-  { id: 'power', role: 'engineer', name: { ru: 'Энергия', en: 'Power' }, focus: ['power:'] },
-  { id: 'platform', role: 'engineer', name: { ru: 'Платформа', en: 'Platform' }, focus: ['adcs:', 'propulsion:'] },
-  { id: 'comms', role: 'comms', name: { ru: 'Связь', en: 'Comms' }, focus: ['comms:'] },
-  { id: 'plan', role: 'manager', name: { ru: 'План', en: 'Plan' }, focus: [] },
+  { id: 'rocket', role: 'manager', name: { ru: 'Ракета', en: 'Rocket' }, focus: [], segment: 'launch' },
+  { id: 'payload', role: 'science', name: { ru: 'Приборы', en: 'Instruments' }, focus: ['inst:'], segment: 'space' },
+  { id: 'power', role: 'engineer', name: { ru: 'Энергия', en: 'Power' }, focus: ['power:'], segment: 'space' },
+  { id: 'platform', role: 'engineer', name: { ru: 'Платформа', en: 'Platform' }, focus: ['adcs:', 'propulsion:'], segment: 'space' },
+  { id: 'comms', role: 'comms', name: { ru: 'Связь', en: 'Comms' }, focus: ['comms:'], segment: 'ground' },
+  { id: 'plan', role: 'manager', name: { ru: 'План', en: 'Plan' }, focus: [], segment: 'space' },
 ];
 
 /** Which section fixes which review finding. */

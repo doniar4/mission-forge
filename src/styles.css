@@ -971,6 +971,19 @@ select:focus {
   background: var(--ink);
   color: var(--bg);
 }
+/* Each step names its mission segment above it: user, space, launch, ground. */
+.step-text {
+  display: grid;
+  line-height: 1.1;
+  text-align: left;
+}
+.step-seg {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
 .step-no {
   font: 600 0.75rem/1 var(--display);
   letter-spacing: 0.06em;

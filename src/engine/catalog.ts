@@ -253,13 +253,14 @@ export const ORBITS: Orbit[] = [
 ];
 
 export const TIERS: Record<1 | 2 | 3, L> = {
-  1: { ru: 'Базовый класс', en: 'Entry class' },
+  1: { ru: 'Базовый класс (уровень кубсата)', en: 'Entry class (CubeSat-grade)' },
   2: { ru: 'Стандартный класс', en: 'Standard class' },
   3: { ru: 'Профессиональный класс', en: 'Professional class' },
 };
 
 /**
- * Science instruments come in three classes. Class 1 is what a student team can afford,
+ * Science instruments come in three classes. Class 1 is what a student team can afford, the
+ * kind of instrument that flies on a CubeSat (the 10 cm-unit standard from Cal Poly and Stanford),
  * class 2 is the working standard, class 3 is what an agency flies. Quality rises much more
  * slowly than mass, power, data and price: the last quarter of quality costs as much again.
  */
@@ -673,7 +674,7 @@ export const VEHICLES: Vehicle[] = [
   {
     id: 'rideshare',
     name: { ru: 'Попутный запуск', en: 'Rideshare slot' },
-    desc: { ru: 'Место на чужой ракете: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную или низкую наклонную орбиту, куда летят все, и с ожиданием очереди. Реальный аналог: попутные запуски SpaceX Transporter и Bandwagon.', en: 'A seat on someone else’s rocket: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous or low inclined orbit, where everyone else goes, after waiting in line. Real counterpart: SpaceX Transporter and Bandwagon rideshares.' },
+    desc: { ru: 'Место на чужой ракете — так летают кубсаты и малые спутники: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную или низкую наклонную орбиту, куда летят все, и с ожиданием очереди. Реальный аналог: попутные запуски SpaceX Transporter и Bandwagon.', en: 'A seat on someone else’s rocket — how CubeSats and small satellites fly: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous or low inclined orbit, where everyone else goes, after waiting in line. Real counterpart: SpaceX Transporter and Bandwagon rideshares.' },
     leoKg: 267, cost: 0.35, baseKg: 50, costPerKg: 0.007, reliability: 0.97, reach: ['sso', 'leo'], leadMonths: 6,
   },
   {

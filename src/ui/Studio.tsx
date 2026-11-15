@@ -13,7 +13,7 @@ import type { Backdrop } from '../three/CraftStage';
 import { Gauge, LangToggle, ROLES, SoundToggle } from './common';
 import { Craft3D } from './Craft3D';
 import { PartRail, type Delta } from './hangar/PartRail';
-import { LESSONS, SECTIONS, WHERE, deltas, groupsFor, type RailGroup, type SectionId } from './hangar/parts';
+import { LESSONS, SECTIONS, SEGMENTS, WHERE, deltas, groupsFor, type RailGroup, type SectionId } from './hangar/parts';
 import { RealMissionHint } from './RealMission';
 import { LostBanner, TeamPanel, useTeamState } from './Team';
 
@@ -181,7 +181,7 @@ export function Studio() {
           </div>
         </div>
 
-        <nav className="steps-bar" aria-label={t('Этапы проекта', 'Design stages')}>
+        <nav className="steps-bar" aria-label={t('Этапы проекта по сегментам миссии: пользователь, космос, запуск, земля', 'Design stages by mission segment: user, space, launch, ground')} title={t('Сегменты миссии: пользовательский, космический, запуск, наземный', 'Mission segments: user, space, launch, ground')}>
           <ol>
             {SECTIONS.map((s, i) => {
               const list = issues(s.id);
@@ -204,7 +204,10 @@ export function Studio() {
                     onClick={() => go(s.id)}
                   >
                     <span className="step-no">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="step-name">{t(s.name)}</span>
+                    <span className="step-text">
+                      <span className="step-seg">{t(SEGMENTS[s.segment])}</span>
+                      <span className="step-name">{t(s.name)}</span>
+                    </span>
                     {list.length > 0 ? (
                       <span className="step-flag" data-level={blocked ? 'blocker' : 'warn'} aria-label={t(`замечаний: ${list.length}`, `${list.length} findings`)}>
                         {list.length}
@@ -583,12 +586,21 @@ export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Desi
       />
       <Gauge
         label={t('Данные', 'Data')}
+        used={ev.data.storageNeed}
+        limit={ev.data.storage}
+        unit={t('ГБ', 'GB')}
+        digits={1}
+        hint={t('копится между сеансами / бортовая память', 'piles up between passes / onboard storage')}
+        fix={t('Компьютер с памятью побольше или сеансы связи чаще.', 'A computer with more storage, or more frequent passes.')}
+      />
+      <Gauge
+        label={t('Связь', 'Comms')}
         used={ev.data.generated}
         limit={ev.data.downlink}
         unit={t('ГБ/сут', 'GB/day')}
         digits={1}
         twoSided
-        hint={t('создают приборы / пропускает связь', 'produced / carried by the link')}
+        hint={t('создают приборы / передаёт антенна и станции', 'produced / sent down by antenna and stations')}
         fix={t('Антенна мощнее или больше станций.', 'A stronger antenna or more stations.')}
       />
       <Gauge
@@ -600,7 +612,7 @@ export function Budgets({ ev, design, sc, onGo }: { ev: Evaluation; design: Desi
         fix={t('Приборы классом ниже, ракета дешевле или миссия короче.', 'Cheaper instruments, a cheaper rocket or a shorter mission.')}
       />
       <Gauge
-        label={t('Срок разработки', 'Development')}
+        label={t('Время', 'Time')}
         used={ev.time.devMonths}
         limit={ev.time.deadline}
         unit={t('мес.', 'mo')}
