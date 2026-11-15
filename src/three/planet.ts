@@ -83,6 +83,7 @@ const EARTH_FRAG = /* glsl */ `
 uniform sampler2D uLand;
 uniform sampler2D uCover;
 uniform float uCoverOn;
+uniform float uDetail;
 ${HEAD}
 void main() {
   vec3 n = normalize(vNormalW);
@@ -108,7 +109,8 @@ void main() {
   // Sea ice near the poles; snow on land from about 65 degrees.
   float ice = smoothstep(0.955, 0.985, lat + (n2 - 0.5) * 0.03) + land * smoothstep(0.9, 0.955, lat + (n1 - 0.5) * 0.06);
   // Seen from close by, the ground needs grain and a hint of relief, lit from the Sun's side.
-  float near = smoothstep(0.004, 0.0006, length(fwidth(p)));
+  // uDetail forces the close-up look, for a backdrop that is near the planet but never moves in.
+  float near = max(uDetail, smoothstep(0.004, 0.0006, length(fwidth(p))));
   if (near > 0.01 && land > 0.01) {
     float grain = fbm3(p * 420.0);
     float relief = (fbm3((p + uSun * 0.0012) * 150.0) - fbm3(p * 150.0)) * 4.5;
@@ -286,6 +288,8 @@ export interface Planet {
   setSun(dir: THREE.Vector3): void;
   setTime(t: number): void;
   showCover(on: boolean): void;
+  /** Earth only: draw city lights as fine points of light even from far away. */
+  setDetail(on: boolean): void;
 }
 
 let land: THREE.Texture | null = null;
@@ -306,6 +310,7 @@ export function makePlanet(body: BodyId): Planet {
     uniforms.uLand = { value: land };
     uniforms.uCover = { value: texture };
     uniforms.uCoverOn = { value: 0 };
+    uniforms.uDetail = { value: 0 };
   }
   const globe = new THREE.Mesh(
     new THREE.SphereGeometry(radius, 256, 128),
@@ -354,6 +359,9 @@ export function makePlanet(body: BodyId): Planet {
     },
     showCover(on) {
       if (uniforms.uCoverOn) uniforms.uCoverOn.value = on ? 1 : 0;
+    },
+    setDetail(on) {
+      if (uniforms.uDetail) uniforms.uDetail.value = on ? 1 : 0;
     },
   };
 }
