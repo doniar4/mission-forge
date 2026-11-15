@@ -5,6 +5,7 @@ import { authConfigured } from '../auth/supabase';
 import type { L } from '../engine/types';
 import { useT } from '../i18n';
 import { useStore } from '../store';
+import { AuthScene } from './AuthScene';
 import { LangToggle, SoundToggle } from './common';
 
 type Mode = 'in' | 'up' | 'forgot' | 'reset';
@@ -65,12 +66,17 @@ export function Auth() {
         </div>
       </header>
 
-      <section className="auth-stage" aria-hidden="true">
-        <Orbits />
-      </section>
+      <AuthScene />
+      <div className="auth-veil" aria-hidden="true" />
+      <div className="auth-guides" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
 
       <section className="auth-copy">
         <p className="auth-eyebrow">
+          <i className="auth-dot" aria-hidden="true" />
           <span>Mission Forge</span>
           <span>{t('Центр управления', 'Mission control')}</span>
         </p>
@@ -114,43 +120,34 @@ export function Auth() {
           <Forms mode={mode} setMode={setMode} />
         )}
       </section>
+
+      <Hud />
     </div>
   );
 }
 
-/** Slowly turning orbits with a spacecraft on each: the page's one moving picture. */
-function Orbits() {
-  const still = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** A strip of mission-control readouts along the foot of the page; the clock is the only live one. */
+function Hud() {
+  const t = useT();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const utc = now.toISOString().slice(11, 19);
   return (
-    <svg className="auth-orbits" viewBox="-400 -400 800 800">
-      <defs>
-        <radialGradient id="auth-planet" cx="35%" cy="30%" r="70%">
-          <stop offset="0%" stopColor="#7aaeff" />
-          <stop offset="45%" stopColor="#1d3b78" />
-          <stop offset="100%" stopColor="#040814" />
-        </radialGradient>
-        <radialGradient id="auth-halo" r="50%">
-          <stop offset="60%" stopColor="rgba(122,174,255,0.25)" />
-          <stop offset="100%" stopColor="rgba(122,174,255,0)" />
-        </radialGradient>
-      </defs>
-      <circle r="150" fill="url(#auth-halo)" />
-      <circle r="96" fill="url(#auth-planet)" />
-      {[
-        { rx: 170, ry: 58, tilt: -24, dur: 14 },
-        { rx: 250, ry: 96, tilt: 18, dur: 22 },
-        { rx: 340, ry: 140, tilt: -8, dur: 34 },
-      ].map((o, i) => (
-        <g key={i} transform={`rotate(${o.tilt})`}>
-          <ellipse rx={o.rx} ry={o.ry} className="auth-orbit" />
-          <circle r={i === 1 ? 5 : 3.5} className="auth-craft" cx={still ? o.rx * Math.cos(i * 2.1) : 0} cy={still ? o.ry * Math.sin(i * 2.1) : 0}>
-            {!still && (
-              <animateMotion dur={`${o.dur}s`} repeatCount="indefinite" path={`M ${o.rx} 0 A ${o.rx} ${o.ry} 0 1 1 ${-o.rx} 0 A ${o.rx} ${o.ry} 0 1 1 ${o.rx} 0`} />
-            )}
-          </circle>
-        </g>
-      ))}
-    </svg>
+    <footer className="auth-hud" aria-hidden="true">
+      <span>
+        <b>{t('Орбита', 'Orbit')}</b> 420 {t('км', 'km')} · {t('51,6°', '51.6°')}
+      </span>
+      <span className="auth-hud-link">
+        <i />
+        {t('Связь с Землёй', 'Ground link')}
+      </span>
+      <span>
+        <b>UTC</b> {utc}
+      </span>
+    </footer>
   );
 }
 
