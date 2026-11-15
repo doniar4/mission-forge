@@ -2,7 +2,8 @@ import { sanitize } from './design';
 import { chooseDev, devDone, devStarted, makeDev } from './development';
 import { evaluate } from './evaluate';
 import { SCENARIOS, emptyDesign, scenarioById } from './scenarios';
-import type { Design, Difficulty, Evaluation, L, Measure, Role, Scenario } from './types';
+import { CRISIS_OPTIONS } from './simulate';
+import type { Choices, CrisisKind, Design, Difficulty, Evaluation, L, Measure, Role, Scenario } from './types';
 
 /** Three people is the sweet spot: four roles, so someone always holds two and has to weigh them against each other. */
 export const TEAM_MAX = 3;
@@ -43,6 +44,10 @@ export interface TeamState {
   ready: Record<string, boolean>;
   chat: ChatMsg[];
   seed: number | null;
+  /** Decisions in flight the team has taken: crisis id -> option. Every screen re-flies with them. */
+  choices: Choices;
+  /** Open votes: crisis id -> member id -> option. A vote closes when everyone has voted or the host's timer runs out. */
+  votes: Record<string, Record<string, string>>;
   /** Bumped on every change, so a receiver can tell new state from old. */
   rev: number;
 }
@@ -62,6 +67,10 @@ export type ClientMsg =
   /** Answer development event `i` (only the owner of the event's role may). */
   | { t: 'dev'; i: number; choice: string }
   | { t: 'chat'; text: string }
+  /** A vote on a decision in flight. */
+  | { t: 'vote'; id: string; option: string }
+  /** The host's vote timer ran out: decide with the votes there are. */
+  | { t: 'close'; id: string }
   | { t: 'back' }
   | { t: 'relaunch' }
   | { t: 'drop' };
@@ -85,6 +94,8 @@ export function initialTeam(code: string, kind: RoomKind, scenarioId: string, di
     ready: {},
     chat: [],
     seed: null,
+    choices: {},
+    votes: {},
     rev: 0,
   };
 }
@@ -113,6 +124,30 @@ function fillRoles(own: Record<Role, string | null>, members: Member[]): Record<
   return next;
 }
 
+/** A new flight from a new seed: decisions and votes of the last one no longer apply. */
+const fly = (s: TeamState, design: Design, seed: number): TeamState => ({ ...s, design, phase: 'flight', seed, choices: {}, votes: {} });
+
+/** Crisis ids are `${kind}-${month}`; the options are fixed per kind. */
+function optionsFor(id: unknown): string[] | null {
+  if (typeof id !== 'string') return null;
+  const m = id.match(/^(storm|drift|budget)-(\d{1,3})$/);
+  return m ? CRISIS_OPTIONS[m[1] as CrisisKind] : null;
+}
+
+/**
+ * The team's decision from its votes: the option most voted for; a tie, or no votes at all,
+ * goes to the cautious option (listed first), as a real flight team defaults to safety.
+ */
+export function tally(options: string[], votes: Record<string, string>): string {
+  const count = (o: string) => Object.values(votes).filter((v) => v === o).length;
+  return options.reduce((best, o) => (count(o) > count(best) ? o : best), options[0]);
+}
+
+function decideVote(s: TeamState, id: string, options: string[]): TeamState {
+  const { [id]: votes = {}, ...open } = s.votes;
+  return { ...s, choices: { ...s.choices, [id]: tally(options, votes) }, votes: open };
+}
+
 /**
  * When every role has an owner and every owner has signed off on a design the board clears, the
  * design goes into development (events drawn from the seed) or, if development is behind it, flies.
@@ -123,7 +158,7 @@ function maybeLaunch(s: TeamState, seed: number): TeamState {
   if (evaluate(s.design, sc, s.difficulty).blockers > 0) return s;
   if (!devStarted(s.design)) return { ...s, phase: 'dev', ready: {}, design: { ...s.design, dev: makeDev(s.design, sc, s.difficulty, seed) } };
   if (!devDone(s.design)) return { ...s, phase: 'dev', ready: {} };
-  return { ...s, phase: 'flight', seed };
+  return fly(s, s.design, seed);
 }
 
 function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number }): TeamState {
@@ -217,7 +252,7 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
       if (!devDone(design)) return { ...s, design };
       // All decided: fly if the board still clears the design, otherwise back to the drawing board.
       if (evaluate(design, sc, s.difficulty).blockers > 0) return { ...s, design, phase: 'design', ready: {} };
-      return { ...s, design, phase: 'flight', seed: ctx.seed };
+      return fly(s, design, ctx.seed);
     }
     case 'chat': {
       const text = clean(msg.text, 240);
@@ -230,10 +265,22 @@ function step(s: TeamState, from: string, msg: ClientMsg, ctx: { seed: number })
       if (s.phase !== 'flight') return s;
       // A new attempt is a new project: the next sign-off starts a fresh development.
       const { dev: _old, ...design } = s.design;
-      return { ...s, phase: 'design', seed: null, ready: {}, design };
+      return { ...s, phase: 'design', seed: null, ready: {}, design, choices: {}, votes: {} };
     }
     case 'relaunch':
-      return s.phase === 'flight' ? { ...s, seed: ctx.seed } : s;
+      return s.phase === 'flight' ? fly(s, s.design, ctx.seed) : s;
+    case 'vote': {
+      const options = optionsFor(msg.id);
+      if (s.phase !== 'flight' || !options || !options.includes(msg.option) || msg.id in s.choices) return s;
+      const next = { ...s, votes: { ...s.votes, [msg.id]: { ...s.votes[msg.id], [from]: msg.option } } };
+      // Everyone in the room has voted: no need to wait for the timer.
+      return s.members.every((m) => m.id in next.votes[msg.id]) ? decideVote(next, msg.id, options) : next;
+    }
+    case 'close': {
+      const options = optionsFor(msg.id);
+      if (!isHost || s.phase !== 'flight' || !options || msg.id in s.choices) return s;
+      return decideVote(s, msg.id, options);
+    }
   }
   return s;
 }

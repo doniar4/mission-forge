@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DIFFICULTY, MEASURES, ORBITS, byId } from '../engine/catalog';
 import { devDone, devStarted } from '../engine/development';
 import { evaluate } from '../engine/evaluate';
+import { maturityOf } from '../engine/maturity';
 import { scenarioById } from '../engine/scenarios';
 import { goalsFor, memberName, rolesOf } from '../engine/team';
 import type { Check, Design, Evaluation, L, Measure, Scenario } from '../engine/types';
@@ -287,7 +288,7 @@ export function Studio() {
       </aside>
 
       <aside className="hangar-right" aria-label={t('Комиссия и запуск', 'Review and launch')}>
-        <Coach checks={ev.checks} onGo={go} />
+        <Coach checks={ev.checks} design={design} onGo={go} />
         <div className="glass panel-scroll">
           <Review checks={ev.checks} onGo={go} />
           {team ? (
@@ -456,8 +457,9 @@ function Years({ design, sc, title, hint, disabled, onChange }: { design: Design
 }
 
 /** One thing to do next, in plain words: the first required finding, or the go-ahead. */
-function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void }) {
+function Coach({ checks, design, onGo }: { checks: Check[]; design: Design; onGo: (s: SectionId) => void }) {
   const t = useT();
+  const cml = maturityOf(design, checks);
   const required = checks.filter((c) => c.level === 'blocker').sort((a, b) => FIRST.indexOf(a.id) - FIRST.indexOf(b.id));
   const risks = checks.length - required.length;
   const next = required[0];
@@ -480,6 +482,13 @@ function Coach({ checks, onGo }: { checks: Check[]; onGo: (s: SectionId) => void
             : t('Проект готов к запуску', 'The design is ready to fly')}
       </b>
       <span className="coach-why">{next ? t(next.why) : t('Риски не запрещают полёт, но проявятся в космосе.', 'Risks do not stop the flight, but will show up in space.')}</span>
+      {/* JPL's Concept Maturity Levels: how far the concept has got, the way mission teams say it. */}
+      <span className="coach-cml" title={t(cml.meaning)}>
+        <abbr title={t('Уровень зрелости концепта (JPL)', 'Concept Maturity Level (JPL)')}>CML {cml.level}</abbr>
+        <span aria-hidden="true"> / 4 · </span>
+        <span className="sr-only">{t(' из 4: ', ' of 4: ')}</span>
+        {t(cml.name)}
+      </span>
       {where && (
         <button type="button" className="ghost small" onClick={() => onGo(where.id)}>
           {t(`К разделу «${where.name.ru}»`, `Go to ${where.name.en}`)}

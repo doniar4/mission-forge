@@ -65,6 +65,9 @@ export function Development() {
       <LostBanner />
       <div className="dev-grid">
         <main>
+          <span className="eyebrow">
+            {t('После CML 4 · сборка и испытания (фазы C–D NASA)', 'After CML 4 · build and test (NASA Phases C–D)')}
+          </span>
           <h1>{t('Разработка', 'Development')}</h1>
           <p className="lead">
             {t(

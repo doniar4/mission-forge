@@ -77,11 +77,13 @@ function apply(s: TeamState) {
   }));
   const screen = useStore.getState().screen;
   if (s.phase === 'flight') {
-    const key = `${s.code}:${s.seed}`;
+    // A new seed is a new flight; new decisions re-fly the same one from the same seed.
+    const choices = s.choices ?? {};
+    const key = `${s.code}:${s.seed}:${JSON.stringify(choices)}`;
     if (key !== lastLaunch && s.seed !== null) {
       lastLaunch = key;
-      const sim = simulate(s.design, scenarioById(s.scenarioId), s.difficulty, s.seed);
-      useStore.setState({ sim, screen: 'flight' });
+      const sim = simulate(s.design, scenarioById(s.scenarioId), s.difficulty, s.seed, choices);
+      useStore.setState({ sim, choices, screen: 'flight' });
     }
   } else if (s.phase === 'dev') {
     if (screen !== 'dev') useStore.setState({ sim: null, screen: 'dev' });
@@ -114,6 +116,8 @@ function register() {
     relaunch: () => teamSend({ t: 'relaunch' }),
     back: () => teamSend({ t: 'back' }),
     leave: () => leaveRoom(),
+    vote: (id: string, option: string) => teamSend({ t: 'vote', id, option }),
+    close: (id: string) => teamSend({ t: 'close', id }),
   });
 }
 

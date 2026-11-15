@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluate } from './evaluate';
 import { emptyDesign, scenarioById } from './scenarios';
 import { describe as describeEvent } from './development';
-import { ROLE_LIST, TEAM_MAX, goalsFor, initialTeam, reduce, rolesOf, teamwork, type ClientMsg, type TeamState } from './team';
+import { ROLE_LIST, TEAM_MAX, goalsFor, initialTeam, reduce, rolesOf, tally, teamwork, type ClientMsg, type TeamState } from './team';
 
 const ctx = { seed: 7 };
 const send = (s: TeamState, from: string, m: ClientMsg) => reduce(s, from, m, ctx);
@@ -255,5 +255,57 @@ describe('personal goals', () => {
     expect(met(a, 'reserve')).toBe(true);
     expect(met(b, 'reserve')).toBe(false);
     expect(teamwork(a).total).toBe(10);
+  });
+});
+
+describe('decisions in flight, voted by the team', () => {
+  /** A room that has signed off, developed and is now flying. */
+  function flying(): TeamState {
+    let s = solve(room());
+    for (const id of ['host', 'p1', 'p2']) s = send(s, id, { t: 'ready', ready: true });
+    return develop(s);
+  }
+
+  it('decides once everyone has voted, by majority', () => {
+    let s = flying();
+    s = send(s, 'host', { t: 'vote', id: 'storm-14', option: 'observe' });
+    s = send(s, 'p1', { t: 'vote', id: 'storm-14', option: 'observe' });
+    expect(s.choices['storm-14']).toBeUndefined();
+    expect(Object.keys(s.votes['storm-14'])).toHaveLength(2);
+    s = send(s, 'p2', { t: 'vote', id: 'storm-14', option: 'safe' });
+    expect(s.choices['storm-14']).toBe('observe');
+    expect(s.votes['storm-14']).toBeUndefined();
+    // Once decided, later votes change nothing.
+    expect(send(s, 'p2', { t: 'vote', id: 'storm-14', option: 'safe' })).toBe(s);
+  });
+
+  it('lets only the host close a vote when the timer runs out', () => {
+    let s = flying();
+    s = send(s, 'p1', { t: 'vote', id: 'budget-20', option: 'end_early' });
+    expect(send(s, 'p1', { t: 'close', id: 'budget-20' })).toBe(s);
+    s = send(s, 'host', { t: 'close', id: 'budget-20' });
+    expect(s.choices['budget-20']).toBe('end_early');
+  });
+
+  it('falls back to the cautious option on a tie or without votes', () => {
+    expect(tally(['safe', 'observe'], { a: 'safe', b: 'observe' })).toBe('safe');
+    expect(tally(['recalibrate', 'carry_on'], {})).toBe('recalibrate');
+  });
+
+  it('refuses votes for unknown crises, unknown options and outside the flight', () => {
+    const s = flying();
+    expect(send(s, 'p1', { t: 'vote', id: 'meteor-3', option: 'safe' })).toBe(s);
+    expect(send(s, 'p1', { t: 'vote', id: 'storm-3', option: 'run' })).toBe(s);
+    const designing = solve(room());
+    expect(send(designing, 'p1', { t: 'vote', id: 'storm-3', option: 'safe' })).toBe(designing);
+  });
+
+  it('forgets decisions when the team flies again', () => {
+    let s = flying();
+    s = send(s, 'host', { t: 'close', id: 'storm-14' });
+    expect(s.choices).toEqual({ 'storm-14': 'safe' });
+    s = send(s, 'host', { t: 'relaunch' });
+    expect(s.choices).toEqual({});
+    expect(s.votes).toEqual({});
   });
 });
