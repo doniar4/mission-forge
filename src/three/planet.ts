@@ -53,8 +53,10 @@ varying vec3 vObj;
 varying vec3 vNormalW;
 varying vec3 vPosW;
 varying vec2 vUv;
+varying vec3 vCenter;
 void main() {
   vUv = uv;
+  vCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vObj = normalize(position);
   vNormalW = normalize(mat3(modelMatrix) * normal);
   vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -70,6 +72,7 @@ varying vec3 vObj;
 varying vec3 vNormalW;
 varying vec3 vPosW;
 varying vec2 vUv;
+varying vec3 vCenter;
 ${NOISE}
 `;
 
@@ -144,7 +147,11 @@ void main() {
   }
 
   // Air scatters blue light towards the camera, most of all along the limb.
-  float rim = pow(1.0 - max(dot(n, v), 0.0), 4.0);
+  // From low altitude nearly all the ground is seen at a grazing angle; the limb glow belongs to
+  // the view from orbit, so it fades in with height instead of washing the land out during ascent.
+  float r = length(vPosW - vCenter);
+  float height = (length(cameraPosition - vCenter) - r) / r;
+  float rim = pow(1.0 - max(dot(n, v), 0.0), 4.0) * smoothstep(0.01, 0.06, height);
   lit += rim * day * vec3(0.2, 0.46, 1.0) * 0.55;
   // A red band where sunlight skims the atmosphere.
   lit += rim * smoothstep(-0.16, 0.0, ndl) * (1.0 - smoothstep(0.0, 0.2, ndl)) * vec3(1.0, 0.35, 0.12) * 0.5;
