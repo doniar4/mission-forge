@@ -234,7 +234,11 @@ void main() {
   float edge = pow(clamp(-dot(n, v) / uLimb, 0.0, 1.0), uPower);
   float day = smoothstep(-0.25, 0.35, dot(n, uSun));
   // Seen from inside the shell this trick breaks down, so it fades away there.
-  float outside = smoothstep(uInner, uInner * 1.012, length(cameraPosition - (vPosW - n * uInner)));
+  float camDist = length(cameraPosition - (vPosW - n * uInner));
+  float outside = smoothstep(uInner, uInner * 1.012, camDist);
+  // Just above the shell (a low parking orbit) the halo would cover the whole view in flat blue:
+  // it belongs to the view from higher up, so it fades in over the first few hundred kilometres.
+  outside *= smoothstep(1.004, 1.03, camDist / uInner);
   edge *= outside;
   gl_FragColor = vec4(uColor * edge * day, edge * day);
   #include <tonemapping_fragment>
