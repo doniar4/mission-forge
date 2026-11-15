@@ -121,3 +121,40 @@ describe('crises in flight', () => {
     }
   });
 });
+
+describe('instrument calibration', () => {
+  const training = scenarioById('training');
+  const camera: Design = {
+    ...emptyDesign(training),
+    orbit: 'sso',
+    instruments: ['cam_mid'],
+    power: 'small',
+    battery: 'b500',
+    comms: 'xband',
+    ground: 'network',
+    computer: 'standard',
+    adcs: 'wheels',
+    propulsion: 'mono',
+    vehicle: 'rideshare',
+    lifeYears: 1,
+  };
+
+  it('stops the only camera for months 3 and 4 and resumes in month 5', () => {
+    const result = simulate(camera, training, 'engineer', 5, { 'drift-3': 'recalibrate' });
+    expect(result.crises[0]).toMatchObject({ id: 'drift-3', chosen: 'recalibrate', instrument: { en: 'Medium-resolution camera' } });
+    const [, before, first, second, after] = result.months;
+    expect(first).toMatchObject({ t: 3, science: before.science, power: 0, data: 0 });
+    expect(second).toMatchObject({ t: 4, science: before.science, power: 0, data: 0 });
+    expect(after.science).toBeGreaterThan(second.science);
+    const uninterrupted = simulate(camera, training, 'engineer', 5, { 'drift-3': 'carry_on' });
+    expect(result.dataGenerated).toBeLessThan(uninterrupted.dataGenerated);
+    expect(simulate(camera, training, 'engineer', 5)).toMatchObject({ months: result.months });
+  });
+
+  it('keeps the other camera working during calibration', () => {
+    const result = simulate({ ...camera, instruments: ['cam_mid', 'cam_wide'] }, training, 'engineer', 5);
+    expect(result.crises[0]).toMatchObject({ id: 'drift-3', instrument: { en: 'Medium-resolution camera' } });
+    expect(result.months[2].science).toBeGreaterThan(result.months[1].science);
+    expect(result.months[2].power).toBeGreaterThan(0);
+  });
+});

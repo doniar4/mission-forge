@@ -607,7 +607,7 @@ export function Flight() {
               <ScienceChart months={sim.months} upto={shown} />
               <div className="meters">
                 <Meter label={t('Питание приборов', 'Instrument power')} value={rec?.phase === 'ops' ? rec.power : null} />
-                <Meter label={t('Данные доходят до Земли', 'Data reaching Earth')} value={rec?.phase === 'ops' ? rec.data : null} />
+                <Meter label={t('Данные доходят до Земли', 'Data reaching Earth')} value={rec?.phase === 'ops' && rec.power > 0 ? rec.data : null} />
               </div>
             </>
           )}

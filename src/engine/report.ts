@@ -124,9 +124,9 @@ export function buildReport(
       en: `${Math.round(ev.dv.total)} m/s of manoeuvres took ${Math.round(ev.mass.propellant)} kg of propellant for a ${Math.round(ev.mass.dry)} kg dry spacecraft. This is the tyranny of the rocket equation: each extra kilogram of payload drags along fuel, and the fuel drags along tanks. A more efficient engine or a cheaper orbit changes the picture.`,
     });
   if (ev.mass.margin > 0.6)
-    tell('warn', { ru: 'Ракета летела полупустой', en: 'The rocket flew mostly empty' }, {
-      ru: `Использовано только ${pct(1 - ev.mass.margin)}% грузоподъёмности. Ракета меньше стоила бы дешевле.`,
-      en: `Only ${pct(1 - ev.mass.margin)}% of the lift capacity was used. A smaller rocket would have cost less.`,
+    tell('warn', { ru: 'Запас по грузоподъёмности', en: 'Payload capacity margin' }, {
+      ru: `Использовано ${pct(1 - ev.mass.margin)}% ${d.vehicle === 'rideshare' ? 'квоты попутного запуска' : 'грузоподъёмности на выбранной орбите'}.`,
+      en: `Used ${pct(1 - ev.mass.margin)}% of the ${d.vehicle === 'rideshare' ? 'rideshare allocation' : 'payload capacity for the selected orbit'}.`,
     });
   if (ev.cost.margin >= 0.1)
     tell('good', { ru: `Сэкономлено ${pct(ev.cost.margin)}% бюджета`, en: `${pct(ev.cost.margin)}% of the budget saved` }, {

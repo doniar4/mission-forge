@@ -97,14 +97,14 @@ export type Flying = Resolved & { orbit: Orbit };
 export const OVERLAP = 0.3;
 
 /** Science quality per measurement: the best instrument counts in full, the others only partly. */
-export function scienceQuality(insts: Instrument[], pointing: number, sc: Scenario) {
+export function scienceQuality(insts: Instrument[], pointing: number, sc: Scenario, calibration: ReadonlyMap<string, number> = new Map()) {
   const quality: Partial<Record<Measure, number>> = {};
   let total = 0;
   for (const [m, w] of Object.entries(sc.weights) as [Measure, number][]) {
     let miss = 1;
     let best = 0;
     for (const i of insts) {
-      const q = i.measures[m];
+      const q = (i.measures[m] ?? 0) * (calibration.get(i.id) ?? 1);
       if (!q) continue;
       // An instrument that cannot be held steady still works, just blurrier.
       const steadiness = pointing >= i.pointing ? 1 : Math.pow(0.45, i.pointing - pointing);
@@ -130,7 +130,7 @@ export interface FlightState {
 }
 
 /** One snapshot of how the spacecraft performs: power, data and science rate. */
-export function performance(r: Flying, sc: Scenario, s: FlightState) {
+export function performance(r: Flying, sc: Scenario, s: FlightState, calibration?: ReadonlyMap<string, number>) {
   const { orbit, pw } = r;
   const busLoad = BUS_BASE_W + r.cpu.power + r.ant.power + r.adcs.power + orbit.heaterW;
   const instLoad = sum(s.active.map((i) => i.power));
@@ -152,7 +152,7 @@ export function performance(r: Flying, sc: Scenario, s: FlightState) {
   const duty = instFrac * eclipseFactor;
 
   const pointing = Math.max(1, r.adcs.pointing - s.pointingLoss);
-  const { quality, total } = scienceQuality(s.active, pointing, sc);
+  const { quality, total } = scienceQuality(s.active, pointing, sc, calibration);
   const orbitFit = sc.orbits[orbit.id]?.fit ?? 0;
 
   const generated = sum(s.active.map((i) => i.data)) * r.cpu.compression * duty;

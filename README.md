@@ -4,7 +4,7 @@ An educational simulator: design a space mission, launch it, and find out why it
 
 **Play it:** https://mission-forge-three.vercel.app · NASA Space Apps Challenge 2026 · Team Try2Fly (Oral, Kazakhstan)
 
-The player gets a brief from a "customer" (spot wildfires, map lunar ice, forecast Martian weather), then picks an orbit, science instruments, a power source, comms, an engine and a rocket, and watches the spacecraft come together in 3D. Then comes the flight: countdown, lift-off, staging, fairing jettison, orbit insertion, the transfer and years of work at the target. Every choice has a price: an instrument adds science but brings mass, power, data and cost with it. After the flight the game explains in plain words which decisions worked, and compares the spacecraft with a real NASA mission that did the same job (Landsat 9, Sentinel-6 Michael Freilich, Lunar Trailblazer, ACE, MAVEN), with a source for every number. The interface is in English by default, with Russian one click away.
+The player gets a brief from a "customer" (spot wildfires, map lunar ice, forecast Martian weather), then picks an orbit, science instruments, a power source, comms, an engine and a rocket, and watches the spacecraft come together in 3D. Then comes the flight: countdown, lift-off, staging, fairing jettison, orbit insertion, the transfer and years of work at the target. Every choice has a price: an instrument adds science but brings mass, power, data and cost with it. After the flight the game explains in plain words which decisions worked, and compares the spacecraft with a real NASA mission with related scientific goals (Landsat 9, Sentinel-6 Michael Freilich, Lunar Trailblazer, ACE, MAVEN), with a source for every number. The interface is in English by default, with Russian one click away.
 
 ## What's in the game
 
@@ -13,7 +13,7 @@ The player gets a brief from a "customer" (spot wildfires, map lunar ice, foreca
 - **Five missions and a sandbox**: Earth orbit, the Moon, the Sun–Earth L1 point and Mars, on three difficulty levels.
 - **The hangar**: the spacecraft in full-screen 3D above its destination. Parts are picked one by one with arrows or from "All options". Hovering a part tries it on the spacecraft at once, and its card shows what it changes for the whole spacecraft: mass, power and cost. How much science a design returns is not shown before launch — that is what the flight is for. The camera flies to the part you are working on.
 - **Seven build steps**: objective, orbit, instruments, power, platform, comms, launch.
-- **Budgets in plain sight**: mass, power, data, money and development time update with every change, with the design's weakest point above them and a link to the right section. For a couple of seconds each gauge shows how far the last choice moved it.
+- **Budgets in plain sight**: mass, power, data, communications, money and development time update with every change, with the design's weakest point above them and a link to the right section. For a couple of seconds each gauge shows how far the last choice moved it.
 - **"Next step" hint**: one required fix in plain words, with a button to the right section.
 - **Review board**: blockers keep the mission on the ground; risks let it fly, and their consequences show up in flight.
 - **Concept maturity on JPL's scale (CML 1–4)**: the hangar shows how far the design has got, from a "cocktail napkin" idea to a point design the review board will pass. Development after that is labelled as NASA Phases C–D.
@@ -149,6 +149,6 @@ The numbers are simplified, but the proportions are real:
 - In sun-synchronous orbit the spacecraft must be deorbited at the end of its mission.
 - Orbit sizes and inclinations in 3D are real: the imaging swath from a 52° low orbit never reaches the poles, while a sun-synchronous one covers the whole planet.
 
-Deliberate simplifications: the fall of the radio link with distance is compressed (in reality it is far steeper and is made up for by huge ground dishes); time in the 3D scenes is compressed — an orbit takes under a minute and ground passes are shown as stylised overflights; the distance to Mars is shortened so the planets fit in one frame.
+Deliberate simplifications: downlink capacity is estimated from the transmission rate and contact time, with game factors. The fall of the radio link with distance is compressed (in reality it is far steeper and is made up for by huge ground dishes); time in the 3D scenes is compressed — an orbit takes under a minute and ground passes are shown as stylised overflights; the distance to Mars is shortened so the planets fit in one frame.
 
 The rockets and services in the game are fictional, each with its real counterpart named for reference: Kolibri ≈ Rocket Lab Electron (300 kg for about $7.5M), Vector ≈ Firefly Alpha or Vega-C, Atlant ≈ a medium launcher such as Soyuz-2 or Antares, Titan-X ≈ SpaceX Falcon 9 (about $70M), the rideshare slot ≈ SpaceX Transporter and Bandwagon ($350k for the first 50 kg, $7k per kg after).
