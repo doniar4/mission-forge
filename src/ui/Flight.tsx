@@ -4,7 +4,7 @@ import { failureTime, sampleAt, simulateAscent, type AscentEventId } from '../en
 import { ORBITS, POWER, VEHICLES, byId, pick } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
-import { ROLE_LIST, memberName } from '../engine/team';
+import { ROLE_LIST, leadOf, memberName } from '../engine/team';
 import type { Body, L } from '../engine/types';
 import { COUNTDOWN, Director, type FlightPlan, type Speed } from '../flight/director';
 import { ASCENT_NOTES, ASCENT_ORDER } from '../flight/notes';
@@ -149,6 +149,10 @@ export function Flight() {
           mine: room.votes?.[pending.id]?.[team!.myId ?? ''],
           votes: Object.entries(room.votes?.[pending.id] ?? {}).map(([id, option]) => ({ name: memberName(room, id), option })),
           total: room.members.length,
+          lead: (() => {
+            const id = leadOf(room, pending.id);
+            return id ? memberName(room, id) : undefined;
+          })(),
         }
       : undefined;
 

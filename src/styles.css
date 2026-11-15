@@ -4987,6 +4987,23 @@ kbd {
   box-shadow: 0 0 0 0 var(--orange-glow);
   animation: crisis-pulse 1.6s ease-out infinite;
 }
+/* Whose call this is: the role colour, so the player who leads it spots it at once. */
+.crisis-lead {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--role, var(--blue)) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--role, var(--blue)) 12%, transparent);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+.crisis-lead b {
+  color: var(--role, var(--ink));
+  font-weight: 600;
+}
 @keyframes crisis-pulse {
   to {
     box-shadow: 0 0 0 10px rgba(255, 107, 44, 0);

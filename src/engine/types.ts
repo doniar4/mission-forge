@@ -330,7 +330,7 @@ export interface MonthRecord {
 }
 
 /** A decision the mission team has to take in flight. */
-export type CrisisKind = 'storm' | 'drift' | 'budget';
+export type CrisisKind = 'storm' | 'drift' | 'budget' | 'outage' | 'debris';
 export interface Crisis {
   id: string;
   kind: CrisisKind;

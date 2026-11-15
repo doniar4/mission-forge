@@ -54,7 +54,7 @@ const E = {
     ru: 'Нет связи с сервисом знакомства игроков (PeerJS). Проверьте интернет или играйте в режиме «На этом компьютере».',
     en: 'Cannot reach the player-matching service (PeerJS). Check your internet, or play in “On this computer” mode.',
   },
-  full: { ru: `В комнате уже ${TEAM_MAX} игрока: больше мест нет.`, en: `The room already has ${TEAM_MAX} players: no seats left.` },
+  full: { ru: `В комнате уже ${TEAM_MAX} игрока — по одному на каждую роль: больше мест нет.`, en: `The room already has ${TEAM_MAX} players: no seats left.` },
   closed: { ru: 'Хозяин закрыл комнату.', en: 'The host closed the room.' },
   lost: { ru: 'Связь с хозяином комнаты потеряна.', en: 'The connection to the host was lost.' },
   silent: { ru: 'Хозяин комнаты не ответил.', en: 'The host did not answer.' },

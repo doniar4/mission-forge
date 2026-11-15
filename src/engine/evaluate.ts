@@ -336,7 +336,7 @@ export function evaluate(d: Design, sc: Scenario, diff: Difficulty): Evaluation 
       en: 'Magnetorquers turn the spacecraft by pushing against Earth’s magnetic field. In this orbit the field is too weak — you need reaction wheels.',
     });
   if (prop.needsWatts > 0 && (pw.solar ? pw.watts * o.solarFactor : pw.watts) < prop.needsWatts)
-    add('blocker', 'engineer', 'ion_power', { ru: 'Ионному двигателю не хватает мощности', en: 'Not enough power for the ion engine' }, {
+    add('blocker', 'engineer', 'ion_power', { ru: 'Электрическому двигателю не хватает мощности', en: 'Not enough power for the electric thruster' }, {
       ru: `Двигателю нужно ${prop.needsWatts} Вт, а источник питания даёт на этой орбите меньше.`,
       en: `The engine needs ${prop.needsWatts} W and your power source gives less than that here.`,
     });

@@ -48,8 +48,8 @@ export function TeamEntry() {
       <h2>{t('Командная игра', 'Team play')}</h2>
       <p className="muted">
         {t(
-          `До ${TEAM_MAX} человек проектируют одну миссию, каждый на своём устройстве. Ролей четыре, поэтому при трёх игроках один ведёт две. У каждой роли свои разделы и свои цели, и они тянут проект в разные стороны: договариваться придётся.`,
-          `Up to ${TEAM_MAX} people design one mission, each on their own device. There are four roles, so with three players one holds two. Each role owns its own sections and has its own goals, and the goals pull the design apart: you will have to negotiate.`,
+          `До ${TEAM_MAX} человек проектируют одну миссию, каждый на своём устройстве. Ролей четыре — по одной на каждого; если вас меньше, кто-то ведёт две. У каждой роли свои разделы и свои цели, и они тянут проект в разные стороны: договариваться придётся.`,
+          `Up to ${TEAM_MAX} people design one mission, each on their own device. There are four roles, one each; with fewer players, someone holds two. Each role owns its own sections and has its own goals, and the goals pull the design apart: you will have to negotiate.`,
         )}
       </p>
       <div className="team-entry">
@@ -351,6 +351,8 @@ export function Lobby() {
               <ul className="role-table">
                 {ROLE_LIST.map((r) => {
                   const owner = st.owners[r];
+                  // The referee lets nobody take a second role while a teammate has none.
+                  const waiting = rolesOf(st, team.myId).length > 0 && st.members.some((m) => rolesOf(st, m.id).length === 0);
                   return (
                     <li key={r} data-role={r}>
                       <div>
@@ -359,7 +361,7 @@ export function Lobby() {
                       </div>
                       <div className="role-owner">
                         {owner ? <span>{memberName(st, owner)}</span> : <span className="muted">{t('свободна', 'free')}</span>}
-                        {!owner && (
+                        {!owner && !waiting && (
                           <button type="button" className="secondary small" onClick={() => teamSend({ t: 'claim', role: r })}>
                             {t('Взять роль', 'Take the role')}
                           </button>

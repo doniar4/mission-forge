@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CRISIS_OPTIONS, simulate } from './simulate';
+import { evaluate } from './evaluate';
+import { CRISIS_LEAD, CRISIS_OPTIONS, outageKept, simulate } from './simulate';
+import { ROLE_LIST } from './team';
 import { emptyDesign, scenarioById } from './scenarios';
 import type { Design } from './types';
 
@@ -21,10 +23,56 @@ const design: Design = {
 const flights = Array.from({ length: 60 }, (_, i) => simulate(design, sc, 'engineer', i + 1)).filter((s) => !s.launchFailed);
 
 describe('crises in flight', () => {
-  it('most flights meet at least one decision, never more than two', () => {
+  it('most flights meet at least one decision, never more than three', () => {
     const met = flights.filter((s) => s.crises.length > 0).length;
     expect(met / flights.length).toBeGreaterThan(0.7);
-    for (const s of flights) expect(s.crises.length).toBeLessThanOrEqual(2);
+    for (const s of flights) expect(s.crises.length).toBeLessThanOrEqual(3);
+    // A three-year mission often meets a third decision; a two-year one never does.
+    expect(flights.some((s) => s.crises.length === 3)).toBe(true);
+    const short = { ...design, lifeYears: 2 };
+    for (let seed = 1; seed <= 40; seed++) expect(simulate(short, sc, 'engineer', seed).crises.length).toBeLessThanOrEqual(2);
+  });
+
+  it('every role leads at least one kind of decision', () => {
+    for (const r of ROLE_LIST) expect(Object.values(CRISIS_LEAD)).toContain(r);
+  });
+
+  it('meets debris only with an engine to dodge it', () => {
+    const kinds = (d: typeof design) =>
+      new Set(Array.from({ length: 120 }, (_, i) => simulate(d, sc, 'engineer', i + 1)).flatMap((s) => s.crises.map((c) => c.kind)));
+    expect(kinds(design).has('debris')).toBe(true);
+    expect(kinds({ ...design, propulsion: 'none' }).has('debris')).toBe(false);
+  });
+
+  it('holding data through an outage loses only what storage cannot fit', () => {
+    let seen = 0;
+    for (const computer of ['basic', 'advanced']) {
+      const d = { ...design, computer };
+      const ev = evaluate(d, sc, 'engineer');
+      const fits = outageKept(ev.data.storage, ev.data.generated) >= 1;
+      for (let seed = 1; seed <= 200; seed++) {
+        const sim = simulate(d, sc, 'engineer', seed);
+        const c = sim.crises.find((x) => x.kind === 'outage');
+        if (!c || sim.lost) continue;
+        seen++;
+        const e = sim.events.find((x) => x.month === c.month && /копить|hold the data/i.test(x.title.en + x.title.ru));
+        expect(e?.kind).toBe(fits ? 'info' : 'warn');
+      }
+    }
+    expect(seen).toBeGreaterThan(10);
+  });
+
+  it('holding course past debris sometimes costs an instrument; dodging never does', () => {
+    let hit = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const safe = simulate(design, sc, 'engineer', seed);
+      const c = safe.crises.find((x) => x.kind === 'debris');
+      if (!c || safe.lost) continue;
+      expect(safe.events.some((e) => e.month === c.month && e.kind === 'bad')).toBe(false);
+      const bold = simulate(design, sc, 'engineer', seed, { [c.id]: 'hold' });
+      if (bold.events.some((e) => e.month === c.month && e.kind === 'bad')) hit++;
+    }
+    expect(hit).toBeGreaterThan(0);
   });
 
   it('without a decision the cautious option is taken', () => {
