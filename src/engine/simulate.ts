@@ -39,8 +39,6 @@ export const CRISIS_LEAD: Record<CrisisKind, Role> = {
  * design should survive them; the bold ones gamble for more.
  */
 export const RECAL_MONTHS = 2;
-/** Share of the month's science kept while one instrument is being recalibrated. */
-export const RECAL_KEEP = 0.88;
 export const DRIFT_QUALITY = 0.92;
 /** Share of the month's science kept in storm safe mode (the storm passes in days). */
 export const STORM_KEEP = 1;
@@ -165,18 +163,17 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
   // Decisions in flight: their schedule, their own dice, and what they leave behind.
   const plan = crisisPlan(seed, planned, diff, orbit.body === 'earth' && prop.isp > 0);
   const crng = mulberry32((seed ^ 0x2545f491) >>> 0);
-  let quality = 1;
+  const calibration = new Map<string, number>();
+  const offlineUntil = new Map<string, number>();
   let contactCut = 1;
   let end = planned;
-  let idle = 0;
 
   for (let m = 1; m <= end && !lost; m++) {
     t++;
     state.years = m / 12;
     state.contactFactor = contactCut;
     let safeMode = false;
-    let boost = idle > 0 ? RECAL_KEEP : 1;
-    if (idle > 0) idle--;
+    let boost = 1;
 
     const due = plan.find((c) => c.m === m);
     if (due && !(due.kind === 'drift' && state.active.length === 0)) {
@@ -209,14 +206,14 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
         }
       } else if (due.kind === 'drift' && subject) {
         if (picked === 'recalibrate') {
-          boost = RECAL_KEEP;
-          idle = RECAL_MONTHS - 1;
+          offlineUntil.set(subject.id, m + RECAL_MONTHS);
+          calibration.delete(subject.id);
           say(t, 'info', { ru: 'Решение: перекалибровать прибор', en: 'Decision: recalibrate the instrument' }, {
             ru: `«${subject.name.ru}» снят с работы на ${RECAL_MONTHS} мес., остальные приборы работают. Потом он снова измеряет точно.`,
             en: `${subject.name.en} is off for ${RECAL_MONTHS} months while the others keep working. Then it measures accurately again.`,
           });
         } else {
-          quality *= DRIFT_QUALITY;
+          calibration.set(subject.id, (calibration.get(subject.id) ?? 1) * DRIFT_QUALITY);
           say(t, 'warn', { ru: 'Решение: работать с ошибкой калибровки', en: 'Decision: carry on with the drift' }, {
             ru: `«${subject.name.ru}» продолжает съёмку, но данные до конца миссии на ${Math.round((1 - DRIFT_QUALITY) * 100)}% менее точны.`,
             en: `${subject.name.en} keeps observing, but the data is ${Math.round((1 - DRIFT_QUALITY) * 100)}% less accurate for the rest of the mission.`,
@@ -380,7 +377,8 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
       });
     }
 
-    const p = performance(flying, sc, state);
+    const working = state.active.filter((instrument) => m >= (offlineUntil.get(instrument.id) ?? 0));
+    const p = performance(flying, sc, { ...state, active: working }, calibration);
     if (p.average < p.busLoad * 0.85) {
       lost = { month: t, cause: { ru: 'Аппарату перестало хватать энергии', en: 'The spacecraft ran out of power' } };
       say(t, 'bad', { ru: 'Аппарат обесточен', en: 'Power lost' }, {
@@ -397,7 +395,7 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
       });
       break;
     }
-    if (!warnedPower && state.active.length > 0 && p.instFrac < 0.98 && m > 1) {
+    if (!warnedPower && working.length > 0 && p.instFrac < 0.98 && m > 1) {
       warnedPower = true;
       say(t, 'warn', { ru: 'Приборы работают по очереди', en: 'Instruments are taking turns' }, {
         ru: `Энергии хватает только на ${Math.round(p.instFrac * 100)}% нагрузки приборов.`,
@@ -418,9 +416,9 @@ export function simulate(d: Design, sc: Scenario, diff: Difficulty, seed: number
     dataReturned += p.generated * p.returnFraction * days * live;
     // Each month is worth what it adds to the science-weighted years (less once past the target).
     const worth = 12 * (scienceYears(m / 12, sc.targetYears) - scienceYears((m - 1) / 12, sc.targetYears));
-    science += (p.ratePerYear / 12) * p.duty * p.returnFraction * live * worth * quality * boost;
+    science += (p.ratePerYear / 12) * p.duty * p.returnFraction * live * worth * boost;
     monthsOperated = m;
-    months.push({ t, phase: 'ops', power: live * p.instFrac, data: live * p.returnFraction, science: science / target });
+    months.push({ t, phase: 'ops', power: live * p.instFrac, data: p.generated > 0 ? live * p.returnFraction : 0, science: science / target });
   }
 
   if (!lost && end < planned)

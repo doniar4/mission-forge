@@ -45,8 +45,8 @@ export const REAL_MISSIONS: Record<string, RealMission> = {
       en: 'TIRS-2 thermal sensor and OLI-2 multispectral imager',
     },
     lesson: {
-      ru: 'Landsat 9 снимает в тепловом диапазоне всю сушу Земли, а не только пожары, поэтому весит почти три тонны. Узкая задача позволяет сделать аппарат в десятки раз легче и дешевле.',
-      en: 'Landsat 9 images all of Earth’s land in thermal infrared, not just fires, which is why it weighs nearly three tonnes. A narrow objective lets a spacecraft be tens of times lighter and cheaper.',
+      ru: 'Landsat 9 снимает в 11 диапазонах с полосой 185 км и повтором через 16 суток. В игре другие требования к съёмке. Сравниваем масштаб, а игровой бюджет и стоимость полного цикла учитывают разные расходы.',
+      en: 'Landsat 9 images in 11 bands with a 185 km swath and a 16-day repeat cycle. Fire Watch has different imaging requirements. This illustrates scale, and the game budget and real life-cycle cost cover different expenses.',
     },
     sources: [
       { label: 'NASA: Landsat 9', url: 'https://science.nasa.gov/mission/landsat-9' },

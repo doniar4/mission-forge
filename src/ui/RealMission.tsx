@@ -65,8 +65,8 @@ export function RealMissionCompare({ scenarioId, design, ev }: { scenarioId: str
       <h2 id="real-mission-title">{t('Ваш аппарат и настоящая миссия', 'Your spacecraft vs a real mission')}</h2>
       <p className="real-intro">
         {t(
-          `Ту же задачу решала миссия ${real.name} (${real.agency.ru}, запуск в ${real.launched} г.).`,
-          `The same job was done by ${real.name} (${real.agency.en}, launched ${real.launched}).`,
+          `Для сравнения масштаба возьмём миссию ${real.name} (${real.agency.ru}, запуск в ${real.launched} г.).`,
+          `For a comparison of scale, consider ${real.name} (${real.agency.en}, launched ${real.launched}).`,
         )}{' '}
         {mass && cost
           ? t(`Ваш аппарат ${mass}, а по стоимости — ${cost}.`, `Yours is ${mass} and ${cost}.`)

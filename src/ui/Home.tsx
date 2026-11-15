@@ -1,3 +1,4 @@
+import { TrainingComparison } from './TrainingComparison';
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { DIFFICULTY, MEASURES } from '../engine/catalog';
 import { SCENARIOS, scenarioById } from '../engine/scenarios';
@@ -29,7 +30,7 @@ const TABS: { id: Sheet; name: { ru: string; en: string }; lede: { ru: string; e
   {
     id: 'team',
     name: { ru: 'Командная игра', en: 'Team play' },
-    lede: { ru: 'До трёх человек, каждый на своём устройстве, проектируют одну миссию.', en: 'Up to three people, each on their own device, design one mission.' },
+    lede: { ru: 'До четырёх человек, каждый на своём устройстве, проектируют одну миссию.', en: 'Up to four people, each on their own device, design one mission.' },
   },
   {
     id: 'records',
@@ -244,7 +245,7 @@ export function Home() {
 
       {sheet && (
         <MenuPanel tab={sheet} onTab={setSheet} onClose={() => setSheet(null)}>
-          {sheet === 'how' && <HowToPlay />}
+          {sheet === 'how' && <><HowToPlay /><TrainingComparison /></>}
           {sheet === 'team' && <TeamEntry />}
           {sheet === 'records' && <Records onOpen={() => setSheet(null)} />}
         </MenuPanel>
