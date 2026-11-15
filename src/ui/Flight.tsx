@@ -4,7 +4,7 @@ import { failureTime, sampleAt, simulateAscent, type AscentEventId } from '../en
 import { ORBITS, POWER, VEHICLES, byId, pick } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { scenarioById } from '../engine/scenarios';
-import { ROLE_LIST } from '../engine/team';
+import { ROLE_LIST, memberName } from '../engine/team';
 import type { Body, L } from '../engine/types';
 import { COUNTDOWN, Director, type FlightPlan, type Speed } from '../flight/director';
 import { ASCENT_NOTES, ASCENT_ORDER } from '../flight/notes';
@@ -14,8 +14,9 @@ import type { FlightStage, FlightView } from '../three/FlightStage';
 import { LangToggle, ROLES, SoundToggle } from './common';
 import { FlightScene } from './FlightScene';
 import { OrbitView } from './OrbitView';
-import { CrisisCard } from './CrisisCard';
+import { CrisisCard, VOTE_SECONDS } from './CrisisCard';
 import { ScienceChart } from './ScienceChart';
+import { TelemetryTrace } from './TelemetryTrace';
 
 const SHADOW: Record<Body, L> = {
   earth: { ru: 'в тени Земли', en: 'in Earth’s shadow' },
@@ -45,7 +46,9 @@ export function Flight() {
   const goto = useStore((s) => s.goto);
   const difficulty = useStore((s) => s.difficulty);
   const inTeam = useStore((s) => !!s.team);
+  const team = useStore((s) => s.team);
   const decide = useStore((s) => s.decide);
+  const closeVote = useStore((s) => s.closeVote);
   const sc = scenarioById(useStore((s) => s.scenarioId));
   const design = useDesign();
   const ev = useMemo(() => evaluate(design, sc, difficulty), [design, sc, difficulty]);
@@ -122,13 +125,32 @@ export function Flight() {
   const phase = director.phase;
   const shown = director.months;
 
-  // Decisions in flight: stop on the month before the next undecided crisis and ask. In a team
-  // the decision is not shared yet, so the cautious default stands and is only logged.
-  const pending = inTeam ? undefined : sim.crises.find((c) => c.defaulted);
+  // Decisions in flight: stop on the month before the next undecided crisis and ask. Alone, the
+  // pick re-flies the mission at once. In a team it is a vote: the host's referee tallies it, the
+  // decision comes back in the room's state, and every screen re-flies from the same seed.
+  const pending = sim.crises.find((c) => c.defaulted);
+  const heldFor = useRef<string | null>(null);
   useEffect(() => {
+    if (heldFor.current && heldFor.current !== pending?.id && director.waiting) director.release(sim.months.length);
+    heldFor.current = pending?.id ?? null;
     director.holdAt(pending ? pending.month - 1 : null);
-  }, [director, pending]);
+  }, [director, pending?.id, sim]);
   const asking = !!pending && director.waiting && phase === 'ops';
+  // The host closes a vote nobody finished: the votes there are decide, a tie goes cautious.
+  useEffect(() => {
+    if (!asking || !pending || !team?.isHost) return;
+    const id = setTimeout(() => closeVote(pending.id), VOTE_SECONDS * 1000);
+    return () => clearTimeout(id);
+  }, [asking, pending?.id, team?.isHost, closeVote]);
+  const room = team?.state;
+  const ballot =
+    inTeam && room && pending
+      ? {
+          mine: room.votes?.[pending.id]?.[team!.myId ?? ''],
+          votes: Object.entries(room.votes?.[pending.id] ?? {}).map(([id, option]) => ({ name: memberName(room, id), option })),
+          total: room.members.length,
+        }
+      : undefined;
 
   // The launch fills the screen; once the spacecraft is at work the telemetry comes back beside it.
   const [full, setFull] = useState(true);
@@ -296,10 +318,11 @@ export function Flight() {
           crisis={pending}
           ev={ev}
           monthsLeft={Math.max(1, sim.plannedMonths - (pending.month - transitTotal) + 1)}
+          team={ballot}
           onPick={(option) => {
             decide(pending.id, option);
             play('select');
-            director.release(useStore.getState().sim!.months.length);
+            if (!inTeam) director.release(useStore.getState().sim!.months.length);
           }}
         />
       )}
@@ -428,6 +451,16 @@ export function Flight() {
               </>
             )}
           </dl>
+          {!launching && (phase === 'ops' || phase === 'insertion') && (
+            <TelemetryTrace
+              active={has3d}
+              showData={view.hasData}
+              read={() => {
+                const h = stage.current?.hud;
+                return h ? { battery: h.battery, buffer: h.buffer, eclipse: h.eclipse, contact: h.contact } : null;
+              }}
+            />
+          )}
 
           <div className="controls">
             {done ? (

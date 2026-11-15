@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DRIFT_QUALITY, EARLY_END_KEEP, PASSES_KEPT, RECAL_MONTHS, STORM_BONUS } from '../engine/simulate';
 import type { Crisis, CrisisKind, Evaluation, L } from '../engine/types';
 import { useT } from '../i18n';
@@ -104,12 +104,42 @@ export const CRISIS_TITLE = (c: Crisis): L =>
       ? { ru: 'Уход калибровки', en: 'Calibration drift' }
       : { ru: 'Урезан бюджет', en: 'Budget cut' };
 
-/** A decision in flight: the mission stands still until the player picks an option. */
-export function CrisisCard({ crisis, ev, monthsLeft, onPick }: { crisis: Crisis; ev: Evaluation; monthsLeft: number; onPick: (option: string) => void }) {
+/** How long a team has to vote before the host closes the vote. */
+export const VOTE_SECONDS = 30;
+
+/** A team's vote on one decision, as this player sees it. */
+export interface Ballot {
+  /** This player's vote, if cast. */
+  mine?: string;
+  votes: { name: string; option: string }[];
+  /** People in the room: everyone votes, whatever their roles. */
+  total: number;
+}
+
+/** Seconds left of the team's vote, counted from when this screen reached the decision. */
+function useCountdown(key: string, on: boolean): number {
+  const [left, setLeft] = useState(VOTE_SECONDS);
+  useEffect(() => {
+    if (!on) return;
+    const start = Date.now();
+    setLeft(VOTE_SECONDS);
+    const id = setInterval(() => setLeft(Math.max(0, VOTE_SECONDS - Math.floor((Date.now() - start) / 1000))), 250);
+    return () => clearInterval(id);
+  }, [key, on]);
+  return left;
+}
+
+/**
+ * A decision in flight: the mission stands still until the player picks an option. In a team the
+ * pick is a vote: everyone sees who voted for what, and the host's referee decides when all have
+ * voted or the time is up (a tie goes to the cautious option).
+ */
+export function CrisisCard({ crisis, ev, monthsLeft, team, onPick }: { crisis: Crisis; ev: Evaluation; monthsLeft: number; team?: Ballot; onPick: (option: string) => void }) {
   const t = useT();
   const s = story(crisis, ev, monthsLeft);
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => first.current?.focus(), [crisis.id]);
+  const left = useCountdown(crisis.id, !!team);
   return (
     <div className="crisis" role="alertdialog" aria-modal="true" aria-labelledby="crisis-title" aria-describedby="crisis-text">
       <div className="crisis-card">
@@ -123,14 +153,38 @@ export function CrisisCard({ crisis, ev, monthsLeft, onPick }: { crisis: Crisis;
           {crisis.options.map((id, i) => {
             const o = s.options[id];
             return (
-              <button key={id} ref={i === 0 ? first : undefined} type="button" className="crisis-option" data-tone={o.tone} onClick={() => onPick(id)}>
+              <button
+                key={id}
+                ref={i === 0 ? first : undefined}
+                type="button"
+                className="crisis-option"
+                data-tone={o.tone}
+                aria-pressed={team ? team.mine === id : undefined}
+                onClick={() => onPick(id)}
+              >
                 <span className="crisis-tag">{o.tone === 'safe' ? t('осторожно', 'cautious') : t('рискованно', 'bold')}</span>
                 <b>{t(o.title)}</b>
                 <span>{t(o.effect)}</span>
+                {team && (
+                  <span className="crisis-voters">
+                    {team.votes
+                      .filter((v) => v.option === id)
+                      .map((v) => v.name)
+                      .join(', ') || t('пока никто', 'no votes yet')}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+        {team && (
+          <p className="crisis-vote" role="status">
+            {t(
+              `Голосует команда: ${team.votes.length} из ${team.total}. Осталось ${left} с. При ничьей — осторожный вариант.`,
+              `Team vote: ${team.votes.length} of ${team.total} in. ${left} s left. A tie goes to the cautious option.`,
+            )}
+          </p>
+        )}
       </div>
     </div>
   );

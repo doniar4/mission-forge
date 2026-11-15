@@ -43,6 +43,8 @@ export interface TeamHooks {
   relaunch: () => void;
   back: () => void;
   leave: () => void;
+  vote: (crisisId: string, option: string) => void;
+  close: (crisisId: string) => void;
 }
 let hooks: TeamHooks | null = null;
 export const setTeamHooks = (h: TeamHooks | null) => {
@@ -77,6 +79,8 @@ interface Store {
   launch: () => void;
   /** Take a decision in flight: the mission is re-flown with it from the same seed. */
   decide: (crisisId: string, option: string) => void;
+  /** Team only: the host's vote timer ran out, so the referee decides with the votes there are. */
+  closeVote: (crisisId: string) => void;
   redesign: () => void;
   goto: (s: Screen) => void;
   saveRecord: (r: Omit<RecordEntry, 'id' | 'date'>) => void;
@@ -159,10 +163,13 @@ export const useStore = create<Store>()(
       },
       decide: (crisisId, option) => {
         const s = get();
-        if (!s.sim || s.team) return;
+        if (!s.sim) return;
+        // In a team a decision is a vote; the host's referee tallies it and every screen re-flies.
+        if (s.team) return hooks?.vote(crisisId, option);
         const choices = { ...s.choices, [crisisId]: option };
         set({ choices, sim: simulate(currentDesign(s), scenarioById(s.scenarioId), s.difficulty, s.sim.seed, choices) });
       },
+      closeVote: (crisisId) => hooks?.close(crisisId),
       redesign: () => {
         if (get().team) return hooks?.back();
         // A new attempt is a new project: the next launch goes through a fresh development.

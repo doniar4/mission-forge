@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { play } from '../audio/sfx';
-import { DIFFICULTY } from '../engine/catalog';
+import { DIFFICULTY, ORBITS, POWER, byId, pick } from '../engine/catalog';
 import { evaluate } from '../engine/evaluate';
 import { buildReport } from '../engine/report';
 import { scenarioById } from '../engine/scenarios';
@@ -9,6 +9,7 @@ import { useT } from '../i18n';
 import { useDesign, useStore } from '../store';
 import { ROLES, TopBar } from './common';
 import { ScienceChart } from './ScienceChart';
+import { BudgetProfile } from './TelemetryTrace';
 import { Craft3D } from './Craft3D';
 import { CRISIS_OPTIONS } from '../engine/simulate';
 import { CRISIS_TITLE } from './CrisisCard';
@@ -296,6 +297,23 @@ export function Debrief() {
               <h2>{t('Наука по месяцам', 'Science month by month')}</h2>
             </div>
             <ScienceChart months={sim.months} />
+          </Reveal>
+        )}
+
+        {/* ---- power and data budgets, as the spacecraft lived them ---- */}
+        {!sim.launchFailed && design.orbit && (
+          <Reveal className="report-section report-chart">
+            <div className="report-head">
+              <span className="report-no">{next()}</span>
+              <h2>{t('Энергия и данные на орбите', 'Power and data in orbit')}</h2>
+            </div>
+            <BudgetProfile
+              sunFraction={pick(POWER, design.power).solar ? (byId(ORBITS, design.orbit)?.sunFraction ?? 1) : 1}
+              eclipseLoad={ev.power.batteryWh > 0 ? ev.power.eclipseNeedWh / ev.power.batteryWh : 0}
+              contactFraction={ev.data.contactHours / 24}
+              storageLoad={ev.data.storage > 0 ? ev.data.storageNeed / ev.data.storage : 9}
+              showData={ev.data.generated > 0}
+            />
           </Reveal>
         )}
 
