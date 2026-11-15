@@ -151,7 +151,7 @@ void main() {
   // the view from orbit, so it fades in with height instead of washing the land out during ascent.
   float r = length(vPosW - vCenter);
   float height = (length(cameraPosition - vCenter) - r) / r;
-  float rim = pow(1.0 - max(dot(n, v), 0.0), 4.0) * smoothstep(0.01, 0.06, height);
+  float rim = pow(1.0 - max(dot(n, v), 0.0), 4.0) * smoothstep(0.05, 0.2, height);
   lit += rim * day * vec3(0.2, 0.46, 1.0) * 0.55;
   // A red band where sunlight skims the atmosphere.
   lit += rim * smoothstep(-0.16, 0.0, ndl) * (1.0 - smoothstep(0.0, 0.2, ndl)) * vec3(1.0, 0.35, 0.12) * 0.5;
