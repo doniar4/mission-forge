@@ -89,8 +89,8 @@ export const SCENARIOS: Scenario[] = [
     name: { ru: 'Погода Красной планеты', en: 'Red Planet Weather' },
     tagline: { ru: 'Научиться предсказывать пылевые бури Марса', en: 'Learn to forecast Martian dust storms' },
     brief: {
-      ru: 'Перед полётом людей нужно понять марсианскую погоду: профили атмосферы, температуру поверхности, снимки бурь и то, как солнечный ветер сдувает воздух планеты. До Марса 8 месяцев пути, Солнце светит вдвое слабее, а сигнал — в тысячи раз тише.',
-      en: 'Before people go, we must understand Martian weather: atmosphere profiles, surface temperature, storm images and how the solar wind strips the planet’s air. Mars is 8 months away, sunlight is half as strong and the signal thousands of times fainter.',
+      ru: 'Перед полётом людей нужно понять марсианскую погоду: профили атмосферы, температуру поверхности, снимки бурь и то, как солнечный ветер сдувает воздух планеты. До Марса 8 месяцев пути, Солнце светит вдвое слабее, а сигнал — в миллиарды раз тише, чем с околоземной орбиты.',
+      en: 'Before people go, we must understand Martian weather: atmosphere profiles, surface temperature, storm images and how the solar wind strips the planet’s air. Mars is 8 months away, sunlight is half as strong and the signal billions of times fainter than from Earth orbit.',
     },
     budget: 130,
     deadlineMonths: 50,
