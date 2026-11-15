@@ -5,6 +5,26 @@ const allMeasures = Object.keys(MEASURES) as Measure[];
 
 export const SCENARIOS: Scenario[] = [
   {
+    // The first flight: one easy objective, a generous budget and a brief that walks through the steps.
+    id: 'training',
+    body: 'earth',
+    stars: 1,
+    name: { ru: 'Учебный полёт', en: 'Training flight' },
+    tagline: { ru: 'Первая миссия: пройдите весь путь шаг за шагом', en: 'Your first mission: the whole path, step by step' },
+    brief: {
+      ru: 'Школьная обсерватория просит снимки Земли в видимом свете на один год. Порядок такой: 1) орбита — солнечно-синхронная; 2) приборы — одна камера среднего разрешения; 3) питание — малые раскрывающиеся панели; 4) платформа — маховики; 5) связь — S-диапазон и коммерческая сеть станций; 6) ракета — попутный запуск. Следите за пятью бюджетами: масса, энергия, данные, деньги и время. Красное замечание комиссии не пустит на старт — нажмите на него, и игра покажет, что поменять.',
+      en: 'A school observatory wants visible-light images of Earth for one year. The steps: 1) orbit — sun-synchronous; 2) instruments — one medium-resolution camera; 3) power — small deployable arrays; 4) platform — reaction wheels; 5) comms — S-band and a commercial station network; 6) rocket — a rideshare slot. Watch the five budgets: mass, power, data, money and time. A red review-board finding keeps you off the pad — click it and the game shows what to change.',
+    },
+    budget: 30,
+    deadlineMonths: 48,
+    targetYears: 1,
+    weights: { visible: 1 },
+    orbits: {
+      sso: { fit: 1, note: { ru: 'Лучший выбор для учёбы: снимки всегда в одно и то же время суток.', en: 'The best choice to learn on: images always at the same time of day.' } },
+      leo: { fit: 0.85, note: { ru: 'Тоже работает, но без полюсов и с торможением в атмосфере.', en: 'Works too, but misses the poles and drags in the thin air.' } },
+    },
+  },
+  {
     id: 'firewatch',
     body: 'earth',
     stars: 1,

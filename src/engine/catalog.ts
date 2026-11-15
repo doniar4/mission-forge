@@ -673,31 +673,31 @@ export const VEHICLES: Vehicle[] = [
   {
     id: 'rideshare',
     name: { ru: 'Попутный запуск', en: 'Rideshare slot' },
-    desc: { ru: 'Место на чужой ракете: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную или низкую наклонную орбиту, куда летят все, и с ожиданием очереди.', en: 'A seat on someone else’s rocket: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous or low inclined orbit, where everyone else goes, after waiting in line.' },
+    desc: { ru: 'Место на чужой ракете: $350 тыс. за первые 50 кг и $7 тыс. за каждый следующий. Только на солнечно-синхронную или низкую наклонную орбиту, куда летят все, и с ожиданием очереди. Реальный аналог: попутные запуски SpaceX Transporter и Bandwagon.', en: 'A seat on someone else’s rocket: $350k for the first 50 kg and $7k for each one after. Only to sun-synchronous or low inclined orbit, where everyone else goes, after waiting in line. Real counterpart: SpaceX Transporter and Bandwagon rideshares.' },
     leoKg: 267, cost: 0.35, baseKg: 50, costPerKg: 0.007, reliability: 0.97, reach: ['sso', 'leo'], leadMonths: 6,
   },
   {
     id: 'kolibri',
     name: { ru: '«Колибри», сверхлёгкая', en: 'Kolibri, micro launcher' },
-    desc: { ru: 'Собственный запуск для малого спутника. Новые ракеты пока менее надёжны.', en: 'A dedicated ride for a small satellite. New rockets are still less reliable.' },
+    desc: { ru: 'Собственный запуск для малого спутника. Новые ракеты пока менее надёжны. Реальный аналог: Electron (Rocket Lab), 300 кг за $7,5 млн.', en: 'A dedicated ride for a small satellite. New rockets are still less reliable. Real counterpart: Rocket Lab Electron, 300 kg for $7.5M.' },
     leoKg: 300, cost: 7.5, reliability: 0.9, reach: ['leo', 'sso'], leadMonths: 2,
   },
   {
     id: 'vector',
     name: { ru: '«Вектор», лёгкая', en: 'Vector, light launcher' },
-    desc: { ru: 'Дотягивается до геопереходной орбиты, Луны и точки L1 — с небольшим грузом.', en: 'Reaches geostationary transfer, the Moon and L1 — with a small payload.' },
+    desc: { ru: 'Дотягивается до геопереходной орбиты, Луны и точки L1 — с небольшим грузом. Реальный аналог: Firefly Alpha или Vega-C.', en: 'Reaches geostationary transfer, the Moon and L1 — with a small payload. Real counterpart: Firefly Alpha or Vega-C.' },
     leoKg: 1500, cost: 15, reliability: 0.94, reach: [...EARTH, 'llo', 'elo', 'l1'], leadMonths: 3,
   },
   {
     id: 'atlant',
     name: { ru: '«Атлант», средняя', en: 'Atlant, medium launcher' },
-    desc: { ru: 'Главная ракета научных миссий: летит куда угодно.', en: 'The mainstay of science missions: goes anywhere.' },
+    desc: { ru: 'Главная ракета научных миссий: летит куда угодно. Реальный аналог: ракеты среднего класса вроде «Союза-2» или Antares.', en: 'The mainstay of science missions: goes anywhere. Real counterpart: medium launchers such as Soyuz-2 or Antares.' },
     leoKg: 8000, cost: 55, reliability: 0.97, reach: ALL, leadMonths: 3,
   },
   {
     id: 'titan',
     name: { ru: '«Титан-Икс», тяжёлая', en: 'Titan-X, heavy launcher' },
-    desc: { ru: 'Поднимает что угодно, и самая надёжная. Цена соответствующая.', en: 'Lifts anything and is the most reliable. Priced to match.' },
+    desc: { ru: 'Поднимает что угодно, и самая надёжная. Цена соответствующая. Реальный аналог: Falcon 9 (SpaceX), около $70 млн.', en: 'Lifts anything and is the most reliable. Priced to match. Real counterpart: SpaceX Falcon 9, about $70M.' },
     leoKg: 22000, cost: 70, reliability: 0.985, reach: ALL, leadMonths: 4, advanced: true,
   },
 ];

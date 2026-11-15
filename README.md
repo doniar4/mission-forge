@@ -1,36 +1,38 @@
 # Mission Forge
 
-Образовательная игра-симулятор: спроектируйте космическую миссию, запустите её и разберитесь, почему она удалась — или нет.
+An educational simulator: design a space mission, launch it, and find out why it worked — or didn't.
 
-*An educational simulator: design a complete space mission, launch it, operate it and learn why it worked — or did not. The interface is in English by default, with Russian one click away. After the flight your spacecraft is compared with a real NASA mission that did the same job (Landsat 9, Sentinel-6 Michael Freilich, Lunar Trailblazer, ACE, MAVEN), with sources for every number.*
+**Play it:** https://mission-forge-three.vercel.app · NASA Space Apps Challenge 2026 · Team Try2Fly (Oral, Kazakhstan)
 
-Игрок получает заявку от «заказчика» (найти лесные пожары, составить карту лунного льда, предсказывать марсианскую погоду), выбирает орбиту, научные приборы, источник энергии, связь, двигатель и ракету — и видит, как его аппарат собирается в 3D. Затем начинается полёт: обратный отсчёт, отрыв от стартового стола, разделение ступеней, сброс обтекателя, выход на орбиту, перелёт и годы работы у цели. Каждое решение чего-то стоит: прибор добавляет науку, но тянет за собой массу, мощность, данные и деньги. После полёта игра объясняет простым языком, какие решения сработали.
+The player gets a brief from a "customer" (spot wildfires, map lunar ice, forecast Martian weather), then picks an orbit, science instruments, a power source, comms, an engine and a rocket, and watches the spacecraft come together in 3D. Then comes the flight: countdown, lift-off, staging, fairing jettison, orbit insertion, the transfer and years of work at the target. Every choice has a price: an instrument adds science but brings mass, power, data and cost with it. After the flight the game explains in plain words which decisions worked, and compares the spacecraft with a real NASA mission that did the same job (Landsat 9, Sentinel-6 Michael Freilich, Lunar Trailblazer, ACE, MAVEN), with a source for every number. The interface is in English by default, with Russian one click away.
 
-## Что уже есть
+## What's in the game
 
-- **30 научных приборов в трёх классах**: базовые (дёшево и легко, около половины цели), стандартные (выполняют цель) и профессиональные (лучшее качество за большую массу, энергию, поток данных и цену).
-- **Пять миссий и песочница**: околоземная орбита, Луна, точка L1 и Марс, три уровня сложности.
-- **Ангар**: аппарат в 3D на весь экран висит над планетой назначения. Детали выбираются по одной стрелками или из меню «Все варианты». При наведении деталь сразу примеряется на аппарат, а карточка показывает, что она изменит у всего аппарата: массу, мощность и цену. Сколько науки даст проект, до полёта не показывается — это и узнают, запустив миссию. Камера подлетает к той части, которую вы собираете.
-- **Семь этапов сборки**: задача, орбита, приборы, энергия, платформа, связь, запуск.
-- **Ресурсы на виду**: масса, энергия, данные, бюджет и срок разработки пересчитываются при каждом изменении, а над ними — «слабое место» проекта с переходом в нужный раздел. Рядом со шкалой на пару секунд появляется, на сколько её сдвинуло последнее решение.
-- **Подсказка «Следующий шаг»**: одно обязательное замечание простыми словами и кнопка перехода в нужный раздел.
-- **Главная** — стартовый стол в сумерках, карусель миссий с отрендеренными планетами, сложность — три карточки со знаками различия.
-- **Комиссия по готовности**: обязательные замечания не дают запустить миссию, риски — дают, но их последствия проявятся в полёте.
-- **3D-симулятор полёта**:
-  - стартовый комплекс, опрос готовности по ролям и обратный отсчёт;
-  - выведение, посчитанное по физике (тяга, гравитация, сопротивление воздуха, убывающая масса): отрыв, максимальный скоростной напор, отделение ускорителей и ступеней, сброс обтекателя, выход на опорную орбиту со скоростью 7,8 км/с;
-  - телеметрия в реальном времени — высота, скорость, перегрузка, топливо ступеней — и объяснение каждого события в момент, когда оно происходит;
-  - отделение аппарата и раскрытие солнечных панелей, перелёт к Луне, Марсу или точке L1, тормозной манёвр;
-  - работа на орбите: тень планеты и разряд батареи, сеансы связи и заполнение памяти, полоса съёмки, которая закрашивает планету только там, куда достаёт орбита;
-  - две камеры — рядом с аппаратом и общий вид орбиты; сцену можно вращать.
-- **Решения в полёте**: посреди миссии игра встаёт на паузу — солнечная буря, уход калибровки прибора, урезанный бюджет. Осторожный вариант или рискованный: решение пересчитывает полёт и попадает в разбор. В командной игре решение — голосование всей команды: 30 секунд, большинство решает, ничья — осторожный вариант.
-- **Зрелость концепта по шкале JPL (CML 1–4)**: ангар показывает, на каком уровне проект — от «идеи» до «точечного проекта», который пропустит комиссия; разработка после него подписана как фазы C–D NASA.
-- **Телеметрия энергии и данных**: в полёте живой график заряда батареи и заполнения памяти с полосами тени и сеансов связи; в разборе — батарея за один виток и память за сутки.
-- **Разбор миссии**: счёт из семи слагаемых, оценка, текстовый анализ «почему так вышло» и сравнение с настоящей миссией NASA, которая решала ту же задачу: масса, энергия, срок, стоимость, орбита и приборы, вывод и ссылки на источники.
-- **Таблица лучших результатов**, сохранение проекта и ссылка, по которой проект открывается у другого человека.
-- **Командная игра вчетвером**: комната по коду или ссылке, четыре роли — по одной на игрока (руководитель миссии, научный руководитель, системный инженер, инженер связи и данных). Каждый меняет только свои разделы, у каждой роли свои цели, которые тянут проект в разные стороны. Миссия стартует, когда все подтвердили проект; полёт и счёт у всех одинаковые. Связь — по интернету (PeerJS/WebRTC) или между вкладками одного браузера.
+- **A training flight** that walks a first-time player through every step, with a generous budget and an easy objective.
+- **30 science instruments in three classes**: entry (cheap and light, about half the objective), standard (meets the objective) and professional (best quality for more mass, power, data and money).
+- **Five missions and a sandbox**: Earth orbit, the Moon, the Sun–Earth L1 point and Mars, on three difficulty levels.
+- **The hangar**: the spacecraft in full-screen 3D above its destination. Parts are picked one by one with arrows or from "All options". Hovering a part tries it on the spacecraft at once, and its card shows what it changes for the whole spacecraft: mass, power and cost. How much science a design returns is not shown before launch — that is what the flight is for. The camera flies to the part you are working on.
+- **Seven build steps**: objective, orbit, instruments, power, platform, comms, launch.
+- **Budgets in plain sight**: mass, power, data, money and development time update with every change, with the design's weakest point above them and a link to the right section. For a couple of seconds each gauge shows how far the last choice moved it.
+- **"Next step" hint**: one required fix in plain words, with a button to the right section.
+- **Review board**: blockers keep the mission on the ground; risks let it fly, and their consequences show up in flight.
+- **Concept maturity on JPL's scale (CML 1–4)**: the hangar shows how far the design has got, from a "cocktail napkin" idea to a point design the review board will pass. Development after that is labelled as NASA Phases C–D.
+- **Development**: three quarters of surprises before launch — heavier parts, weaker arrays, late suppliers, budget cuts — each paid for with mass, money or time.
+- **3D flight simulator**:
+  - the launch complex, a go/no-go poll by role and the countdown;
+  - a physics-based ascent (thrust, gravity, drag, falling mass): lift-off, max Q, booster and stage separation, fairing jettison, orbit at 7.8 km/s;
+  - live telemetry — altitude, speed, g-load, propellant per stage — and an explanation of each event as it happens;
+  - spacecraft separation and array deployment, the transfer to the Moon, Mars or L1, the braking burn;
+  - work in orbit: the planet's shadow draining the battery, ground passes filling and emptying storage, an imaging swath that paints the planet only where the orbit reaches;
+  - two cameras — beside the spacecraft and the whole orbit; the scene can be rotated.
+- **Decisions in flight**: mid-mission the game pauses on one of five kinds of decision — a solar storm, calibration drift, a budget cut, a ground-station outage, a debris approach. Each has a cautious and a bold option; the decision re-flies the mission and shows up in the debrief. Long missions meet up to three.
+- **Power and data telemetry**: in flight, a live trace of battery charge and storage with shadow and ground-pass bands; in the debrief, the battery over one orbit and storage over one day.
+- **Debrief**: a score made of seven parts, a grade, a plain-language "why it went this way" and the comparison with the real NASA mission: mass, power, design life, cost, orbit and payload, a takeaway and source links.
+- **Records table**, saving designs and a link that opens your design on someone else's screen.
+- **Team play for four**: a room by code or link, four roles, one per player (mission manager, science lead, systems engineer, comms and data engineer). Each role edits only its own sections and has its own goals, which pull the design apart. The mission launches when everyone signs off; the flight and score are the same on every screen. In flight every decision is a 30-second team vote; the majority wins, and in a tie the decision's lead role has the casting vote. Connects over the internet (PeerJS/WebRTC) or between tabs of one browser.
+- **Optional accounts** (Supabase): sign in to keep one account across devices.
 
-Без WebGL и при включённой в системе настройке «уменьшить движение» игра работает с плоскими схемами вместо 3D-сцен.
+Without WebGL, or with "reduce motion" switched on, the game shows flat diagrams instead of 3D scenes.
 
 ## NASA resources used
 
@@ -43,6 +45,8 @@ Every number the game compares against comes from a cited source; the links are 
 | JPL Concept Maturity Levels (Wessen et al., IEEE Aerospace Conference, 2013) | The CML 1–4 scale shown in the hangar (`src/engine/maturity.ts`). |
 | NASA project life cycle, [NASA Systems Engineering Handbook (SP-2016-6105 Rev2)](https://www.nasa.gov/reference/systems-engineering-handbook/) | Development is labelled as Phases C–D: final design, build and test. |
 
+Catalogue prices and masses were fact-checked in November 2026 against NASA, JPL and ESA pages and published launch prices.
+
 ## AI & tooling disclosure
 
 - **What the team did:** the concept, the game design, the choice of missions and numbers, testing and every decision about what ships.
@@ -51,96 +55,99 @@ Every number the game compares against comes from a cited source; the links are 
 - **No AI-generated data:** mission figures come from the sources above, not from a model. 3D models are generated by our own Blender scripts (see below); there are no AI-generated images in the game.
 - **Other tools:** React, TypeScript, Vite, three.js, PeerJS, Supabase, Blender, Canva (pitch deck).
 
-## Для коллабораторов и ИИ-моделей
+## For collaborators and AI models
 
-- [docs/HANDOFF.md](docs/HANDOFF.md) — полное описание: все модули и функции, формулы, 3D-сцены, протокол командной игры, принципы, известные проблемы и задачи с критериями готовности.
-- [AGENTS.md](AGENTS.md) — короткие обязательные правила для работы с кодом.
-- [docs/PLAN.md](docs/PLAN.md) — карта этапов и ближайшие задачи.
+- [docs/HANDOFF.md](docs/HANDOFF.md) — the full description: every module and function, formulas, 3D scenes, the team-play protocol, principles, known issues and tasks with acceptance criteria (in Russian).
+- [AGENTS.md](AGENTS.md) — the short mandatory rules for working on the code.
+- [docs/PLAN.md](docs/PLAN.md) — the roadmap and next tasks.
 
-## Запуск
+## Running it
 
-Нужен Node.js 20 или новее.
+Needs Node.js 20 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Откройте адрес, который покажет Vite (обычно http://localhost:5173). Сервер слушает и локальную сеть: адрес вида `http://192.168.x.x:5173` из строки `Network` открывается с телефонов и ноутбуков в той же сети Wi-Fi, и ссылка-приглашение в командной игре ведёт именно туда.
+Open the address Vite prints (usually http://localhost:5173). The server also listens on the local network: the `http://192.168.x.x:5173` address from the `Network` line opens on phones and laptops on the same Wi-Fi, and the team-play invite link points there.
 
 ```bash
-npm test        # тесты расчётного ядра, выведения и хода полёта
-npm run build   # проверка типов и сборка в dist/
+npm test        # tests of the engine, the ascent and the flight
+npm run build   # type check and build into dist/
 ```
 
-## Аккаунты (Supabase)
+## Accounts (Supabase)
 
-Аккаунты необязательны: без них игра работает полностью, проекты и рекорды хранятся в браузере. Вход и регистрация работают сразу, без `.env`-файлов: адрес проекта Supabase и его publishable-ключ заданы в `src/auth/supabase.ts` (`PROJECT_URL`, `PUBLISHABLE_KEY`).
+Accounts are optional: without one the game works fully, and designs and records are kept in the browser. Sign-in and sign-up work out of the box, with no `.env` files: the Supabase project URL and its publishable key are set in `src/auth/supabase.ts` (`PROJECT_URL`, `PUBLISHABLE_KEY`).
 
-- Publishable-ключ Supabase задуман публичным, его ограничивает Row Level Security. Секретный ключ (`service_role`, `sb_secret_…`) в код не кладите никогда.
-- Сборка может указать на другой проект переменными `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` (например, в настройках проекта на Vercel) — они важнее встроенных значений и подставляются при сборке, поэтому после их изменения нужен новый деплой.
-- В Supabase, **Authentication → URL Configuration**: в *Site URL* и *Redirect URLs* должны быть адреса, с которых открывается игра (`http://localhost:5173`, адрес в локальной сети, адрес на Vercel) — на них ведут письма подтверждения и сброса пароля.
+- The Supabase publishable key is public by design and limited by Row Level Security. Never put the secret key (`service_role`, `sb_secret_…`) in the code.
+- A build can point at another project with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (for example in the Vercel project settings). They take precedence over the built-in values and are baked in at build time, so changing them needs a new deploy.
+- In Supabase, **Authentication → URL Configuration**: *Site URL* and *Redirect URLs* must list the addresses the game opens from (`http://localhost:5173`, the local-network address, the Vercel address) — confirmation and password-reset emails link there.
 
-## Как устроен код
+## How the code is organised
 
 ```
 src/
-  engine/            расчётное ядро без зависимостей от интерфейса
-    types.ts         типы: орбита, компонент, проект, результат
-    catalog.ts       орбиты, приборы, компоненты, ракеты, уровни сложности
-    scenarios.ts     миссии: задача, бюджет, сроки, подходящие орбиты
-    evaluate.ts      бюджеты массы, энергии, данных, денег, времени + замечания комиссии
-    simulate.ts      полёт по месяцам с детерминированным генератором случайных чисел
-    ascent.ts        выведение на орбиту: интегрирование по секундам, события запуска
-    report.ts        счёт и объяснение результата
-    design.ts        sanitize(): приводит любой проект к допустимому виду
-    team.ts          судья командной игры и личные цели ролей
-    *.test.ts        тесты физики, баланса, выведения и командной логики
-  flight/            ход полёта на экране
-    director.ts      фазы: старт → выведение → раскрытие → перелёт → манёвр → работа
-    notes.ts         что означает каждое событие запуска и почему оно происходит
-  three/             3D-сцены (three.js), загружаются только когда нужны
-    assets.ts        загрузка моделей и общие материалы
-    craft.ts         сборка аппарата из деталей по проекту игрока
-    rocket.ts        ракета по ступеням и стартовый комплекс
-    planet.ts        Земля, Луна и Марс — шейдерами, без фотографий
-    orbits.ts        геометрия рабочих орбит
-    fx.ts            факел двигателя, дым, небо, местность у старта
-    CraftStage.ts    сцена сборки в конструкторе
-    FlightStage.ts   сцена полёта
-    HeroStage.ts     ракета на главной странице
-  team/              сеть: PeerJS и BroadcastChannel, комнаты
-  ui/                экраны: главная, лобби, конструктор, полёт, разбор
-  store.ts           состояние игры (zustand), сохранение в браузере, ссылки на проекты
-  i18n.ts            переключение русского и английского
-public/models/       модели: детали аппарата, ракеты, стартовый комплекс (glTF)
-tools/blender/       скрипты, которыми эти модели сгенерированы в Blender
+  engine/            the simulation core, with no UI dependencies
+    types.ts         types: orbit, component, design, result
+    catalog.ts       orbits, instruments, components, rockets, difficulty levels
+    scenarios.ts     missions: objective, budget, deadline, suitable orbits
+    evaluate.ts      mass, power, data, money and time budgets + review-board findings
+    simulate.ts      the flight month by month, with a deterministic random generator
+    ascent.ts        the climb to orbit: second-by-second integration, launch events
+    report.ts        the score and the explanation of the result
+    design.ts        sanitize(): brings any design to a valid state
+    team.ts          the team-play referee and each role's goals
+    *.test.ts        tests of physics, balance, ascent and team logic
+  flight/            the flight on screen
+    director.ts      phases: launch → ascent → deployment → transfer → burn → operations
+    notes.ts         what each launch event means and why it happens
+  three/             3D scenes (three.js), loaded only when needed
+    assets.ts        model loading and shared materials
+    craft.ts         builds the spacecraft from the player's design
+    rocket.ts        the rocket by stages and the launch complex
+    planet.ts        Earth, the Moon and Mars — drawn by shaders, no photographs
+    orbits.ts        geometry of the working orbits
+    fx.ts            engine plume, smoke, sky, terrain around the pad
+    CraftStage.ts    the hangar scene
+    FlightStage.ts   the flight scene
+    HeroStage.ts     the rocket on the home page
+    AuthStage.ts     Earth from orbit behind the sign-in page
+  team/              networking: PeerJS and BroadcastChannel, rooms
+  ui/                screens: home, lobby, hangar, flight, debrief
+  store.ts           game state (zustand), browser saves, design links
+  i18n.ts            English/Russian switch
+public/models/       models: spacecraft parts, rockets, the launch complex (glTF)
+tools/blender/       the scripts that generated those models in Blender
 ```
 
-Ядро — чистые функции: `evaluate(design, scenario, difficulty)` возвращает все бюджеты и замечания, `simulate(design, scenario, difficulty, seed)` — полную историю полёта, `simulateAscent(vehicle, load)` — траекторию выведения. Один и тот же `seed` всегда даёт один и тот же полёт, поэтому в командной игре хозяин рассылает только проект и число, а полёт каждый считает сам. 3D-сцены ничего не решают: они показывают то, что уже посчитало ядро.
+The core is pure functions: `evaluate(design, scenario, difficulty)` returns every budget and finding, `simulate(design, scenario, difficulty, seed)` the whole flight history, `simulateAscent(vehicle, load)` the ascent trajectory. The same `seed` always gives the same flight, so in team play the host sends only the design and a number, and every screen computes the flight itself. The 3D scenes decide nothing: they show what the core has already computed.
 
-## Модели и изображения
+## Models and images
 
-Все трёхмерные модели — оригинальные: они сгенерированы в Blender скриптами из `tools/blender/` (`mf_common.py`, `build_kit.py`, `build_rockets.py`) и экспортированы в `public/models/`. Картинки на карточках деталей, миссий и орбит (`public/thumbs/`, 83 штуки, в том числе все 30 приборов трёх классов) отрендерены в Blender скриптом `render_thumbs.py`:
+All 3D models are original: they are generated in Blender by the scripts in `tools/blender/` (`mf_common.py`, `build_kit.py`, `build_rockets.py`) and exported to `public/models/`. The pictures on part, mission and orbit cards (`public/thumbs/`, 83 of them, including all 30 instruments in three classes) are rendered in Blender by `render_thumbs.py`:
 
 ```bash
 blender -b --gpu-backend opengl tools/blender/mission-forge-assets.blend --python tools/blender/render_thumbs.py
 ```
 
-(`--gpu-backend opengl`: на бэкенде Vulkan фоновый рендер Blender 5.3 иногда падает.) Чтобы пересобрать их, откройте Blender (проверено в версии 5.3) и запустите скрипты `build_kit.py` и `build_rockets.py` (каждый — дважды при первом запуске: первый раз создаёт рабочую сцену). Исходная сцена лежит в `tools/blender/mission-forge-assets.blend`.
+(`--gpu-backend opengl`: on the Vulkan backend, background rendering in Blender 5.3 sometimes crashes.) To rebuild them, open Blender (tested with 5.3) and run `build_kit.py` and `build_rockets.py` (each twice on the first run: the first run creates the working scene). The source scene is `tools/blender/mission-forge-assets.blend`.
 
-Планеты нарисованы шейдерами. Единственные внешние данные — контур суши Земли из набора Natural Earth (общественное достояние), пакет [world-atlas](https://github.com/topojson/world-atlas). Фотографий, чужих моделей и логотипов в игре нет; ракеты и сервисы вымышлены.
+The planets are drawn by shaders. The only external data is Earth's land outline from Natural Earth (public domain), via the [world-atlas](https://github.com/topojson/world-atlas) package. There are no photographs, third-party models or logos in the game.
 
-## Насколько это реалистично
+## How realistic it is
 
-Числа упрощены, но пропорции настоящие:
+The numbers are simplified, but the proportions are real:
 
-- Топливо считается по формуле Циолковского с учётом массы баков.
-- Выведение интегрируется по секундам: ракета стартует с тяговооружённостью около 1,36, проходит максимальный скоростной напор на высоте 10–14 км, первая ступень работает около трёх минут, вторая разгоняет аппарат до 7,8 км/с на высоте 200 км. Чем тяжелее аппарат для своей ракеты, тем меньше топлива остаётся в баках второй ступени.
-- Солнечные батареи дают мощность только на свету и слабеют с расстоянием от Солнца (у Марса — 43%) и с годами.
-- Объём переданных данных — это скорость канала, умноженная на время связи со станциями.
-- Магнитные катушки ориентации работают только в магнитном поле Земли.
-- На солнечно-синхронной орбите аппарат обязан сойти с орбиты после завершения работы.
-- Размеры и наклонения орбит в 3D настоящие: полоса съёмки на низкой орбите с наклонением 52° не доходит до полюсов, а на солнечно-синхронной — покрывает всю планету.
+- Propellant follows the Tsiolkovsky rocket equation, including tank mass.
+- The ascent is integrated second by second: the rocket lifts off at a thrust-to-weight of about 1.36, passes max Q at 10–14 km, the first stage burns for about three minutes and the second takes the spacecraft to 7.8 km/s at 200 km. The heavier the spacecraft for its rocket, the less propellant is left in the second stage.
+- Solar arrays give power only in sunlight, and weaken with distance from the Sun (43% at Mars) and with age. Deployable arrays deliver 50–67 W/kg, as real rigid arrays do.
+- Data returned is the link rate times the contact time with ground stations.
+- Magnetorquers work only in Earth's magnetic field.
+- In sun-synchronous orbit the spacecraft must be deorbited at the end of its mission.
+- Orbit sizes and inclinations in 3D are real: the imaging swath from a 52° low orbit never reaches the poles, while a sun-synchronous one covers the whole planet.
 
-Сознательные упрощения: падение скорости связи с расстоянием сжато (в реальности оно намного круче и компенсируется огромными наземными антеннами); в 3D-сценах время сжато — виток длится меньше минуты, а сеансы связи показаны условными пролётами; расстояние до Марса уменьшено, чтобы планеты помещались в один кадр. Названия ракет вымышлены.
+Deliberate simplifications: the fall of the radio link with distance is compressed (in reality it is far steeper and is made up for by huge ground dishes); time in the 3D scenes is compressed — an orbit takes under a minute and ground passes are shown as stylised overflights; the distance to Mars is shortened so the planets fit in one frame.
+
+The rockets and services in the game are fictional, each with its real counterpart named for reference: Kolibri ≈ Rocket Lab Electron (300 kg for about $7.5M), Vector ≈ Firefly Alpha or Vega-C, Atlant ≈ a medium launcher such as Soyuz-2 or Antares, Titan-X ≈ SpaceX Falcon 9 (about $70M), the rideshare slot ≈ SpaceX Transporter and Bandwagon ($350k for the first 50 kg, $7k per kg after).

@@ -303,10 +303,10 @@ describe('consequences', () => {
 });
 
 describe('real missions to compare with', () => {
-  it('every scenario except the sandbox has a sourced real mission', async () => {
+  it('every scenario except the sandbox and the training flight has a sourced real mission', async () => {
     const { REAL_MISSIONS } = await import('./realMissions');
     const { SCENARIOS } = await import('./scenarios');
-    for (const sc of SCENARIOS.filter((s) => !s.sandbox)) {
+    for (const sc of SCENARIOS.filter((s) => !s.sandbox && s.id !== 'training')) {
       const m = REAL_MISSIONS[sc.id];
       expect(m, sc.id).toBeTruthy();
       expect(m.massKg).toBeGreaterThan(0);
