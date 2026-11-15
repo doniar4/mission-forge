@@ -42,6 +42,7 @@ Every number the game compares against comes from a cited source; the links are 
 |---|---|
 | NASA mission pages and fact sheets: [Landsat 9](https://science.nasa.gov/mission/landsat-9), [Sentinel-6 Michael Freilich](https://www.jpl.nasa.gov/news/press_kits/sentinel-6/facts/), [Lunar Trailblazer](https://science.nasa.gov/mission/lunar-trailblazer-fact-sheet), [ACE](https://science.nasa.gov/mission/ace), [MAVEN](https://science.nasa.gov/mission/maven) | The real counterpart of each mission in the debrief: launch mass, power, design life, cost, orbit and payload (`src/engine/realMissions.ts`). |
 | [CRS report R46560](https://www.everycrsreport.com/reports/R46560.html) | Landsat 9 life-cycle cost. |
+| NASA Blue Marble ([Commons copy](https://commons.wikimedia.org/wiki/File:Whole_world_-_land_and_oceans_12000.jpg)) and NASA Black Marble, Earth at night ([Commons copy](https://commons.wikimedia.org/wiki/File:The_earth_at_night.jpg)), public domain | Earth's land, ice and real city lights in every 3D scene, shrunk to 4096 × 2048 in `public/textures/`. |
 | JPL Concept Maturity Levels (Wessen et al., IEEE Aerospace Conference, 2013) | The CML 1–4 scale shown in the hangar (`src/engine/maturity.ts`). |
 | NASA project life cycle, [NASA Systems Engineering Handbook (SP-2016-6105 Rev2)](https://www.nasa.gov/reference/systems-engineering-handbook/) | Development is labelled as Phases C–D: final design, build and test. |
 
@@ -134,7 +135,7 @@ blender -b --gpu-backend opengl tools/blender/mission-forge-assets.blend --pytho
 
 (`--gpu-backend opengl`: on the Vulkan backend, background rendering in Blender 5.3 sometimes crashes.) To rebuild them, open Blender (tested with 5.3) and run `build_kit.py` and `build_rockets.py` (each twice on the first run: the first run creates the working scene). The source scene is `tools/blender/mission-forge-assets.blend`.
 
-The planets are drawn by shaders. The only external data is Earth's land outline from Natural Earth (public domain), via the [world-atlas](https://github.com/topojson/world-atlas) package. There are no photographs, third-party models or logos in the game.
+Earth's land, ice and night lights are NASA's Blue Marble and Black Marble images (public domain, see the NASA resources table); clouds, the ocean's glint and the atmosphere are drawn by shaders, as are the Moon and Mars. Earth's land outline comes from Natural Earth (public domain), via the [world-atlas](https://github.com/topojson/world-atlas) package. There are no third-party models or logos in the game.
 
 ## How realistic it is
 
