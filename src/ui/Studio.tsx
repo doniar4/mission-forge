@@ -410,7 +410,9 @@ function Brief({ sc, ev }: { sc: Scenario; ev: Evaluation }) {
               <li key={m} data-covered={covered || undefined}>
                 <span className="needs-name">{t(MEASURES[m])}</span>
                 <span className="needs-weight">
-                  {t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)} · {covered ? t('есть прибор', 'instrument on board') : t('нет прибора', 'no instrument')}
+                  {weights.length > 5
+                    ? `${Math.round(w * 100)}%${covered ? ' ✓' : ''}`
+                    : `${t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)} · ${covered ? t('есть прибор', 'instrument on board') : t('нет прибора', 'no instrument')}`}
                 </span>
                 <span className="needs-bar" role="img" aria-label={t(`${Math.round(w * 100)}% задачи`, `${Math.round(w * 100)}% of goal`)}>
                   <i style={{ width: `${w * 100}%` }} />

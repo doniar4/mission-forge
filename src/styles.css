@@ -3869,6 +3869,21 @@ details.review[open] > summary svg {
   gap: 8px;
   margin-top: 8px;
 }
+/* A brief with many measurements (the sandbox has eleven) fills columns, never a tall column that
+   climbs over the gauges; whatever still does not fit scrolls inside the panel. */
+.hangar .brief-needs {
+  min-height: 0;
+  max-height: calc(var(--dock-h) - 40px);
+  overflow-y: auto;
+}
+.hangar .needs:has(li:nth-child(6)) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 20px;
+}
+.hangar .needs:has(li:nth-child(6)) .needs-weight {
+  font-size: 0.6875rem;
+}
 .hangar .needs li {
   font-size: 0.8125rem;
 }
