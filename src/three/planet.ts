@@ -87,6 +87,9 @@ uniform sampler2D uLand;
 uniform sampler2D uCover;
 uniform float uCoverOn;
 uniform float uDetail;
+uniform sampler2D uDay;
+uniform sampler2D uNight;
+uniform float uPhoto;
 ${HEAD}
 void main() {
   vec3 n = normalize(vNormalW);
@@ -123,6 +126,14 @@ void main() {
   ocean = mix(ocean, vec3(0.03, 0.2, 0.3), smoothstep(0.3, 0.5, mask) * (1.0 - land) * 0.55);
   vec3 col = mix(ocean, landCol, land);
   col = mix(col, vec3(0.9, 0.94, 0.98), clamp(ice, 0.0, 1.0));
+  // NASA's Blue Marble once it has loaded; the drawn planet above stands in until then. Close up,
+  // the same grain as the drawn land keeps a 10 km pixel from looking smeared.
+  vec3 photo = texture2D(uDay, vUv).rgb * 1.3;
+  if (near > 0.01) photo *= 1.0 + near * land * (fbm3(p * 420.0) - 0.5) * 0.3;
+  // The photo's sea is a flat navy: keep the drawn ocean (it catches the Sun) wherever the photo
+  // shows water, judged from the photo itself so its coastline is the one that counts.
+  float water = smoothstep(1.2, 2.5, photo.b / max(photo.r + photo.g, 0.002));
+  col = mix(col, mix(photo, ocean, water), uPhoto);
 
   // Where the instruments have looked so far.
   vec4 cover = texture2D(uCover, vUv);
@@ -143,6 +154,9 @@ void main() {
     float towns = smoothstep(0.6, 0.78, fbm3(p * 80.0 + 40.0));
     float sparks = near > 0.01 ? smoothstep(0.5, 0.72, fbm3(p * 28.0 + 40.0)) * smoothstep(0.58, 0.8, fbm3(p * 900.0)) * 1.6 : 0.0;
     float cities = land * (1.0 - arid) * (1.0 - clamp(ice, 0.0, 1.0)) * mix(towns, sparks, near);
+    // NASA's Black Marble: the real lights of real cities.
+    float lights = smoothstep(0.22, 0.85, texture2D(uNight, vUv).r);
+    cities = mix(cities, lights * 1.4, uPhoto);
     lit += (1.0 - day) * cities * (1.0 - c) * vec3(1.0, 0.7, 0.34) * 0.55;
   }
 
@@ -305,6 +319,26 @@ export interface Planet {
 
 let land: THREE.Texture | null = null;
 
+/**
+ * NASA Blue Marble (day) and Black Marble (city lights at night), public domain, shrunk to
+ * 4096 × 2048 in public/textures. Loaded once and shared; if they fail, the drawn planet stays.
+ */
+let photos: Promise<[THREE.Texture, THREE.Texture]> | null = null;
+function earthPhotos(): Promise<[THREE.Texture, THREE.Texture]> {
+  photos ??= (() => {
+    const loader = new THREE.TextureLoader();
+    const load = (name: string, srgb: boolean) =>
+      loader.loadAsync(`${import.meta.env.BASE_URL}textures/${name}`).then((t) => {
+        t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.wrapS = THREE.RepeatWrapping;
+        t.anisotropy = 8;
+        return t;
+      });
+    return Promise.all([load('earth-day.jpg', true), load('earth-night.jpg', false)]);
+  })();
+  return photos.catch(() => new Promise<never>(() => {}));
+}
+
 export function makePlanet(body: BodyId): Planet {
   const radius = BODY_RADIUS[body];
   const sun = new THREE.Vector3(1, 0, 0);
@@ -322,6 +356,14 @@ export function makePlanet(body: BodyId): Planet {
     uniforms.uCover = { value: texture };
     uniforms.uCoverOn = { value: 0 };
     uniforms.uDetail = { value: 0 };
+    uniforms.uDay = { value: null };
+    uniforms.uNight = { value: null };
+    uniforms.uPhoto = { value: 0 };
+    earthPhotos().then(([day, night]) => {
+      uniforms.uDay.value = day;
+      uniforms.uNight.value = night;
+      uniforms.uPhoto.value = 1;
+    });
   }
   const globe = new THREE.Mesh(
     new THREE.SphereGeometry(radius, 256, 128),
